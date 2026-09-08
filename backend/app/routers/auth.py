@@ -45,6 +45,7 @@ def register(
 
     user = User(
         full_name=data.full_name,
+        phone=data.phone,
         email=data.email,
         password_hash=hash_password(data.password),
     )
