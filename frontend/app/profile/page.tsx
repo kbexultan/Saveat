@@ -160,15 +160,13 @@ export default function ProfilePage() {
               </p>
 
               <button
-                disabled
-                className="mt-5 w-full cursor-not-allowed rounded-2xl bg-[#E5B0AF] py-3 text-sm font-semibold text-white"
+                onClick={() =>
+                  router.push("/orders")
+                }
+                className="mt-5 w-full rounded-2xl bg-[#D87979] py-3 text-sm font-semibold text-white transition hover:bg-[#C96868]"
               >
-                Мои заказы
+                Посмотреть мои заказы
               </button>
-
-              <p className="mt-2 text-center text-xs text-[#A58C81]">
-                Скоро подключим
-              </p>
             </div>
 
             <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">

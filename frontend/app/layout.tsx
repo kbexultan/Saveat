@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { AuthProvider } from "@/components/AuthProvider";
 
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 const geistSans = Geist({

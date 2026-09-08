@@ -75,3 +75,34 @@ class OfferResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+class OfferPublicResponse(BaseModel):
+    id: UUID
+
+    title: str
+    description: str | None
+
+    original_price: Decimal
+    sale_price: Decimal
+
+    quantity_remaining: int
+
+    pickup_start: datetime
+    pickup_end: datetime
+
+    type: str
+    status: str
+
+    product_id: UUID | None
+    product_name: str | None
+    product_image_url: str | None
+    category: str | None
+
+    branch_id: UUID
+    branch_name: str
+    address: str
+    latitude: float | None
+    longitude: float | None
+
+    business_id: UUID
+    business_name: str

@@ -1,47 +1,91 @@
-import Header from "@/components/Header";
-
 import Link from "next/link";
 
-const offers = [
-  {
-    id: 1,
-    business: "Sweet Cake",
-    title: "Medovik",
-    oldPrice: 2500,
-    price: 1500,
-    discount: 40,
-    pickup: "20:00–21:00",
-    remaining: 4,
-    emoji: "🍰",
-  },
-  {
-    id: 2,
-    business: "Coffee Boom",
-    title: "Croissant Box",
-    oldPrice: 3200,
-    price: 1900,
-    discount: 41,
-    pickup: "19:30–21:00",
-    remaining: 3,
-    emoji: "🥐",
-  },
-  {
-    id: 3,
-    business: "Dessert Lab",
-    title: "Mystery Sweet Box",
-    oldPrice: 4500,
-    price: 2500,
-    discount: 44,
-    pickup: "20:30–22:00",
-    remaining: 2,
-    emoji: "🧁",
-  },
-];
+import Header from "@/components/Header";
 
-export default function Home() {
+import OfferCard, {
+  type Offer,
+} from "@/components/OfferCard";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
+
+async function getOffers(): Promise<Offer[]> {
+  try {
+    const response = await fetch(`${API_URL}/offers/public`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Failed to load offers:",
+        response.status,
+      );
+
+      return [];
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Failed to connect to backend:", error);
+
+    return [];
+  }
+}
+
+function calculateDiscount(
+  originalPrice: number,
+  salePrice: number,
+) {
+  if (originalPrice <= 0) {
+    return 0;
+  }
+
+  return Math.round(
+    ((originalPrice - salePrice) / originalPrice) * 100,
+  );
+}
+
+function formatPickupTime(date: string) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Asia/Almaty",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
+
+function getEmoji(category: string | null) {
+  const normalizedCategory =
+    category?.toLowerCase() ?? "";
+
+  if (
+    normalizedCategory.includes("dessert") ||
+    normalizedCategory.includes("десерт")
+  ) {
+    return "🍰";
+  }
+
+  if (
+    normalizedCategory.includes("bakery") ||
+    normalizedCategory.includes("выпеч")
+  ) {
+    return "🥐";
+  }
+
+  if (
+    normalizedCategory.includes("coffee") ||
+    normalizedCategory.includes("кофе")
+  ) {
+    return "☕";
+  }
+
+  return "🍴";
+}
+
+export default async function Home() {
+  const offers = await getOffers();
+
   return (
     <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
-      {/* Header */}
       <Header variant="home" />
 
       {/* Hero */}
@@ -53,18 +97,21 @@ export default function Home() {
 
           <h2 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
             Забирай вкусную еду
-            <span className="text-[#D97A7A]"> дешевле</span>
+            <span className="text-[#D97A7A]">
+              {" "}
+              дешевле
+            </span>
           </h2>
 
           <p className="mt-5 max-w-xl text-lg leading-8 text-[#806E68]">
-            Кондитерские, кофейни и пекарни продают свежие остатки дня
-            со скидкой до 70%.
+            Кондитерские, кофейни и пекарни продают
+            свежие остатки дня со скидкой до 70%.
           </p>
         </div>
 
         {/* Filters */}
         <div className="mt-10 flex flex-wrap gap-3">
-          <button className="rounded-full bg-[#4B3A3A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#3B2F2F]">
+          <button className="rounded-full bg-[#4B3A3A] px-5 py-2.5 text-sm font-medium text-white">
             Все
           </button>
 
@@ -81,8 +128,8 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Offers heading */}
-        <div className="mt-12 flex items-end justify-between gap-4">
+        {/* Heading */}
+        <div className="mt-12 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h3 className="text-2xl font-semibold">
               Предложения рядом
@@ -93,82 +140,61 @@ export default function Home() {
             </p>
           </div>
 
-          <button className="hidden text-sm font-medium text-[#C96868] transition hover:text-[#A94F59] sm:block">
-            Показать на карте →
-          </button>
+          <Link
+            href="/map"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#D87979] bg-[#FFFDF9] px-5 py-3 text-sm font-semibold text-[#C96868] transition hover:bg-[#F7E7E1]"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M20 10C20 15 12 22 12 22C12 22 4 15 4 10C4 5.58 7.58 2 12 2C16.42 2 20 5.58 20 10Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+
+              <circle
+                cx="12"
+                cy="10"
+                r="3"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+            </svg>
+
+            Показать на карте
+          </Link>
         </div>
 
-        {/* Cards */}
+        {/* Empty state */}
+        {offers.length === 0 && (
+          <div className="mt-8 rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
+            <div className="text-4xl">🍰</div>
+
+            <h4 className="mt-4 text-xl font-bold">
+              Пока нет активных предложений
+            </h4>
+
+            <p className="mt-2 text-sm text-[#806E68]">
+              Новые предложения появятся здесь, когда
+              заведения опубликуют остатки.
+            </p>
+          </div>
+        )}
+
+        {/* Real offers */}
         <div className="mt-7 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {offers.map((offer) => (
-            <article
+            <OfferCard
               key={offer.id}
-              className="overflow-hidden rounded-[28px] border border-[#E7DDD2] bg-[#FFFDF9] shadow-[0_10px_35px_rgba(90,65,55,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_45px_rgba(90,65,55,0.10)]"
-            >
-              {/* Image */}
-              <div className="relative flex h-52 items-center justify-center bg-[#F5E4E1]">
-                <span className="text-7xl">
-                  {offer.emoji}
-                </span>
-
-                <span className="absolute right-4 top-4 rounded-full bg-[#D97A7A] px-3 py-1.5 text-xs font-bold text-white shadow-sm">
-                  -{offer.discount}%
-                </span>
-              </div>
-
-              {/* Content */}
-              <div className="p-5">
-                <p className="text-sm font-medium text-[#A18C84]">
-                  {offer.business}
-                </p>
-
-                <h4 className="mt-1 text-xl font-semibold text-[#3B2F2F]">
-                  {offer.title}
-                </h4>
-
-                {/* Price */}
-                <div className="mt-4 flex items-end gap-2">
-                  <span className="text-2xl font-bold text-[#3B2F2F]">
-                    {offer.price.toLocaleString()} ₸
-                  </span>
-
-                  <span className="pb-1 text-sm text-[#AFA09A] line-through">
-                    {offer.oldPrice.toLocaleString()} ₸
-                  </span>
-                </div>
-
-                {/* Info */}
-                <div className="mt-5 space-y-3 rounded-2xl bg-[#FAF5EF] p-4 text-sm text-[#76635E]">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Забрать</span>
-
-                    <span className="font-medium text-[#4C3C3C]">
-                      {offer.pickup}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Осталось</span>
-
-                    <span className="font-medium text-[#B85F68]">
-                      {offer.remaining} шт.
-                    </span>
-                  </div>
-                </div>
-
-                {/* Reserve */}
-                <button className="mt-5 w-full rounded-2xl bg-[#D97A7A] py-3.5 font-semibold text-white transition duration-200 hover:bg-[#C96868] active:scale-[0.98]">
-                  Забронировать
-                </button>
-              </div>
-            </article>
+              offer={offer}
+            />
           ))}
         </div>
-
-        {/* Mobile map */}
-        <button className="mt-8 w-full rounded-2xl border border-[#E2D6CC] bg-[#FFFDF9] py-3 text-sm font-medium text-[#C96868] sm:hidden">
-          Показать на карте
-        </button>
       </section>
 
       {/* Footer */}

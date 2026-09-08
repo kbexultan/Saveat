@@ -33,3 +33,30 @@ class OrderResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+
+class OrderDetailsResponse(BaseModel):
+    id: UUID
+    offer_id: UUID
+
+    quantity: int
+    unit_price: Decimal
+    total_price: Decimal
+
+    status: str
+    pickup_code: str
+
+    created_at: datetime
+    picked_up_at: datetime | None
+
+    offer_title: str
+
+    product_name: str | None
+    product_image_url: str | None
+
+    business_name: str
+    branch_name: str
+    address: str
+
+    pickup_start: datetime
+    pickup_end: datetime
