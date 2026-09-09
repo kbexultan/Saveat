@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { useAuth } from "@/components/AuthProvider";
+import { useCart } from "@/components/CartProvider";
 
 type HeaderProps = {
   variant?: "home" | "auth";
@@ -11,12 +12,22 @@ type HeaderProps = {
 export default function Header({
   variant = "home",
 }: HeaderProps) {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    loading,
+  } = useAuth();
+
+  const { totalItems } =
+    useCart();
 
   return (
     <header className="border-b border-[#eadfd6] bg-[#fffdf9]">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="block">
+        {/* Logo */}
+        <Link
+          href="/"
+          className="block"
+        >
           <h1 className="text-3xl font-bold tracking-tight text-[#D87979]">
             SAVEAT
           </h1>
@@ -35,12 +46,54 @@ export default function Header({
           </Link>
         ) : (
           <div className="flex items-center gap-3">
+            {/* Корзина */}
+            <Link
+              href="/cart"
+              aria-label="Корзина"
+              title="Корзина"
+              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[#DDCEC3] bg-[#FFFDF9] text-[#5C4949] transition hover:border-[#D87979] hover:bg-[#F7E7E1] hover:text-[#D87979]"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 4H5L7.3 15.2C7.5 16.2 8.4 17 9.5 17H17.5C18.5 17 19.4 16.3 19.7 15.3L21 9H7"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                <circle
+                  cx="10"
+                  cy="20"
+                  r="1.5"
+                  fill="currentColor"
+                />
+
+                <circle
+                  cx="18"
+                  cy="20"
+                  r="1.5"
+                  fill="currentColor"
+                />
+              </svg>
+
+              {totalItems > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#D87979] px-1 text-[10px] font-bold text-white">
+                  {totalItems > 99
+                    ? "99+"
+                    : totalItems}
+                </span>
+              )}
+            </Link>
+
+            {/* Auth */}
             {loading ? (
-              /*
-                Пока единственная проверка авторизации идёт,
-                место под кнопку уже занято.
-                Поэтому header не прыгает.
-              */
               <div className="h-11 w-11 rounded-full border border-[#DDCEC3] bg-[#F7EFE8]" />
             ) : user ? (
               <Link
@@ -54,7 +107,6 @@ export default function Header({
                   height="22"
                   viewBox="0 0 24 24"
                   fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
                   aria-hidden="true"
                 >
                   <path
@@ -80,7 +132,10 @@ export default function Header({
               </Link>
             )}
 
-            <button className="rounded-xl bg-[#D87979] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#C96868]">
+            <button
+              type="button"
+              className="rounded-xl bg-[#D87979] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#C96868]"
+            >
               Для бизнеса
             </button>
           </div>

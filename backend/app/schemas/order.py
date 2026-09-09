@@ -60,3 +60,18 @@ class OrderDetailsResponse(BaseModel):
 
     pickup_start: datetime
     pickup_end: datetime
+    
+class CheckoutItem(BaseModel):
+    offer_id: UUID
+
+    quantity: int = Field(
+        gt=0,
+        le=20,
+    )
+
+
+class CheckoutRequest(BaseModel):
+    items: list[CheckoutItem] = Field(
+        min_length=1,
+        max_length=20,
+    )  

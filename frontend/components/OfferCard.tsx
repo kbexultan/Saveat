@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { useAuth } from "@/components/AuthProvider";
+import { useCart } from "@/components/CartProvider";
 
 export type Offer = {
   id: string;
@@ -11,8 +11,13 @@ export type Offer = {
   title: string;
   description: string | null;
 
-  original_price: string | number;
-  sale_price: string | number;
+  original_price:
+    | string
+    | number;
+
+  sale_price:
+    | string
+    | number;
 
   quantity_remaining: number;
 
@@ -24,7 +29,10 @@ export type Offer = {
 
   product_id: string | null;
   product_name: string | null;
-  product_image_url: string | null;
+  product_image_url:
+    | string
+    | null;
+
   category: string | null;
 
   branch_id: string;
@@ -38,10 +46,6 @@ export type Offer = {
   business_name: string;
 };
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://127.0.0.1:8001";
-
 function calculateDiscount(
   originalPrice: number,
   salePrice: number,
@@ -51,20 +55,34 @@ function calculateDiscount(
   }
 
   return Math.round(
-    ((originalPrice - salePrice) / originalPrice) * 100,
+    ((originalPrice -
+      salePrice) /
+      originalPrice) *
+      100,
   );
 }
 
-function formatPickupTime(date: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Asia/Almaty",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
+function formatPickupTime(
+  date: string,
+) {
+  return new Intl.DateTimeFormat(
+    "ru-RU",
+    {
+      timeZone:
+        "Asia/Almaty",
+
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  ).format(new Date(date));
 }
 
-function getEmoji(category: string | null) {
-  const value = category?.toLowerCase() ?? "";
+function getEmoji(
+  category: string | null,
+) {
+  const value =
+    category?.toLowerCase() ??
+    "";
 
   if (
     value.includes("dessert") ||
@@ -87,7 +105,9 @@ function getEmoji(category: string | null) {
     return "☕";
   }
 
-  if (value.includes("mystery")) {
+  if (
+    value.includes("mystery")
+  ) {
     return "🎁";
   }
 
@@ -101,21 +121,11 @@ export default function OfferCard({
 }) {
   const router = useRouter();
 
-  const { user, loading: authLoading } =
-    useAuth();
+  const { addItem } =
+    useCart();
 
   const [quantity, setQuantity] =
     useState(1);
-
-  // ВАЖНО:
-  // теперь остаток хранится локально.
-  // Поэтому после заказа нам не нужно
-  // refresh всей страницы.
-  const [remaining, setRemaining] =
-    useState(offer.quantity_remaining);
-
-  const [reserving, setReserving] =
-    useState(false);
 
   const [message, setMessage] =
     useState("");
@@ -123,36 +133,44 @@ export default function OfferCard({
   const [error, setError] =
     useState("");
 
-  const originalPrice = Number(
-    offer.original_price,
-  );
+  const originalPrice =
+    Number(
+      offer.original_price,
+    );
 
-  const salePrice = Number(
-    offer.sale_price,
-  );
+  const salePrice =
+    Number(
+      offer.sale_price,
+    );
 
-  const discount = calculateDiscount(
-    originalPrice,
-    salePrice,
-  );
+  const discount =
+    calculateDiscount(
+      originalPrice,
+      salePrice,
+    );
 
   const totalPrice =
     salePrice * quantity;
 
-  const pickup = `${formatPickupTime(
-    offer.pickup_start,
-  )}–${formatPickupTime(
-    offer.pickup_end,
-  )}`;
+  const maxQuantity =
+    Math.min(
+      offer.quantity_remaining,
+      20,
+    );
 
-  const maxQuantity = Math.min(
-    remaining,
-    20,
-  );
+  const pickup =
+    `${formatPickupTime(
+      offer.pickup_start,
+    )}–${formatPickupTime(
+      offer.pickup_end,
+    )}`;
 
   function decreaseQuantity() {
     setQuantity((current) =>
-      Math.max(1, current - 1),
+      Math.max(
+        1,
+        current - 1,
+      ),
     );
 
     setMessage("");
@@ -171,125 +189,31 @@ export default function OfferCard({
     setError("");
   }
 
-  async function handleReserve() {
+  function handleAddToCart() {
     setMessage("");
     setError("");
 
-    if (authLoading) {
-      return;
-    }
-
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    const token =
-      localStorage.getItem(
-        "access_token",
+    const result =
+      addItem(
+        offer,
+        quantity,
       );
 
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    if (
-      quantity < 1 ||
-      quantity > remaining
-    ) {
+    if (!result.success) {
       setError(
-        "Такого количества уже нет.",
+        result.message ??
+          "Не удалось добавить товар.",
       );
 
       return;
     }
 
-    try {
-      setReserving(true);
+    setMessage(
+      result.message ??
+        "Добавлено в корзину.",
+    );
 
-      const orderedQuantity =
-        quantity;
-
-      const response = await fetch(
-        `${API_URL}/orders`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Authorization:
-              `Bearer ${token}`,
-          },
-
-          body: JSON.stringify({
-            offer_id: offer.id,
-            quantity:
-              orderedQuantity,
-          }),
-        },
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        if (
-          response.status === 409
-        ) {
-          throw new Error(
-            "Такого количества уже нет в наличии.",
-          );
-        }
-
-        if (
-          response.status === 401
-        ) {
-          localStorage.removeItem(
-            "access_token",
-          );
-
-          router.push("/login");
-          return;
-        }
-
-        throw new Error(
-          typeof data.detail ===
-            "string"
-            ? data.detail
-            : "Не удалось создать заказ.",
-        );
-      }
-
-      // Уменьшаем только эту карточку.
-      // Никакого router.refresh().
-      setRemaining(
-        (current) =>
-          Math.max(
-            0,
-            current -
-              orderedQuantity,
-          ),
-      );
-
-      setQuantity(1);
-
-      setMessage(
-        `Забронировано: ${orderedQuantity} шт.`,
-      );
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(
-          "Не удалось создать заказ.",
-        );
-      }
-    } finally {
-      setReserving(false);
-    }
+    setQuantity(1);
   }
 
   return (
@@ -320,9 +244,12 @@ export default function OfferCard({
         </span>
       </div>
 
+      {/* Контент */}
       <div className="flex flex-1 flex-col p-5">
         <p className="text-sm font-medium text-[#A18C84]">
-          {offer.business_name}
+          {
+            offer.business_name
+          }
         </p>
 
         <h4 className="mt-1 text-xl font-semibold text-[#3B2F2F]">
@@ -354,7 +281,9 @@ export default function OfferCard({
         {/* Информация */}
         <div className="mt-5 space-y-3 rounded-2xl bg-[#FAF5EF] p-4 text-sm text-[#76635E]">
           <div className="flex items-center justify-between gap-3">
-            <span>Забрать</span>
+            <span>
+              Забрать
+            </span>
 
             <span className="font-medium text-[#4C3C3C]">
               {pickup}
@@ -362,16 +291,22 @@ export default function OfferCard({
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <span>Осталось</span>
+            <span>
+              Осталось
+            </span>
 
             <span className="font-medium text-[#B85F68]">
-              {remaining} шт.
+              {
+                offer.quantity_remaining
+              }{" "}
+              шт.
             </span>
           </div>
 
           <div className="border-t border-[#EADFD6] pt-3">
             <p className="text-xs">
-              📍 {offer.address}
+              📍{" "}
+              {offer.address}
             </p>
           </div>
         </div>
@@ -390,19 +325,15 @@ export default function OfferCard({
                   decreaseQuantity
                 }
                 disabled={
-                  quantity <= 1 ||
-                  reserving ||
-                  remaining <= 0
+                  quantity <= 1
                 }
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#DDCEC3] bg-[#FFFDF9] text-lg font-semibold disabled:opacity-40"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#DDCEC3] bg-[#FFFDF9] text-lg font-semibold text-[#5C4949] transition hover:bg-[#F7E7E1] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 −
               </button>
 
               <span className="min-w-6 text-center font-bold">
-                {remaining <= 0
-                  ? 0
-                  : quantity}
+                {quantity}
               </span>
 
               <button
@@ -412,11 +343,9 @@ export default function OfferCard({
                 }
                 disabled={
                   quantity >=
-                    maxQuantity ||
-                  reserving ||
-                  remaining <= 0
+                  maxQuantity
                 }
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#DDCEC3] bg-[#FFFDF9] text-lg font-semibold disabled:opacity-40"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#DDCEC3] bg-[#FFFDF9] text-lg font-semibold text-[#5C4949] transition hover:bg-[#F7E7E1] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 +
               </button>
@@ -429,18 +358,16 @@ export default function OfferCard({
             </span>
 
             <span className="text-lg font-bold">
-              {remaining <= 0
-                ? "0"
-                : totalPrice.toLocaleString(
-                    "ru-RU",
-                  )}{" "}
+              {totalPrice.toLocaleString(
+                "ru-RU",
+              )}{" "}
               ₸
             </span>
           </div>
         </div>
 
-        {/* Тут высота всегда одинаковая */}
-        <div className="mt-3 flex min-h-[48px] items-center">
+        {/* Сообщение */}
+        <div className="mt-3 flex min-h-[44px] items-center">
           {message && (
             <p className="text-sm font-medium text-[#587852]">
               ✓ {message}
@@ -454,24 +381,39 @@ export default function OfferCard({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={handleReserve}
-          disabled={
-            reserving ||
-            authLoading ||
-            remaining <= 0
-          }
-          className="mt-auto w-full rounded-2xl bg-[#D97A7A] py-3.5 font-semibold text-white transition-colors hover:bg-[#C96868] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {reserving
-            ? "Бронируем..."
-            : remaining <= 0
+        {/* Кнопки */}
+        <div className="mt-auto space-y-2">
+          <button
+            type="button"
+            onClick={
+              handleAddToCart
+            }
+            disabled={
+              offer.quantity_remaining <=
+              0
+            }
+            className="w-full rounded-2xl bg-[#D97A7A] py-3.5 font-semibold text-white transition-colors hover:bg-[#C96868] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {offer.quantity_remaining <=
+            0
               ? "Распродано"
-              : `Забронировать · ${totalPrice.toLocaleString(
-                  "ru-RU",
-                )} ₸`}
-        </button>
+              : "Добавить в корзину"}
+          </button>
+
+          {message && (
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/cart",
+                )
+              }
+              className="w-full rounded-2xl border border-[#D87979] py-3 text-sm font-semibold text-[#C96868] transition hover:bg-[#F7E7E1]"
+            >
+              Перейти в корзину
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );

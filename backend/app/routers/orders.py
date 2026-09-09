@@ -15,6 +15,7 @@ from app.models.order import Order
 from app.models.product import Product
 from app.models.user import User
 from app.schemas.order import (
+    CheckoutRequest,
     OrderCreate,
     OrderDetailsResponse,
     OrderResponse,
@@ -203,6 +204,196 @@ def get_orders(
         for order, offer, branch, business, product in rows
     ]
 
+@router.post(
+    "/checkout",
+    response_model=list[OrderResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+def checkout(
+    data: CheckoutRequest,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    if not data.items:
+        raise HTTPException(
+            status_code=400,
+            detail="Cart is empty",
+        )
+
+    # Сначала убираем возможные
+    # дубликаты offer_id.
+    quantities: dict[UUID, int] = {}
+
+    for item in data.items:
+        quantities[item.offer_id] = (
+            quantities.get(
+                item.offer_id,
+                0,
+            )
+            + item.quantity
+        )
+
+    for quantity in quantities.values():
+        if quantity > 20:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Maximum quantity "
+                    "per offer is 20"
+                ),
+            )
+
+    offer_ids = sorted(
+        quantities.keys(),
+        key=str,
+    )
+
+    try:
+        # Блокируем товары на время
+        # checkout.
+        offers = (
+            db.execute(
+                select(Offer)
+                .where(
+                    Offer.id.in_(
+                        offer_ids
+                    )
+                )
+                .order_by(Offer.id)
+                .with_for_update()
+            )
+            .scalars()
+            .all()
+        )
+
+        if len(offers) != len(
+            offer_ids
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "One or more offers "
+                    "were not found"
+                ),
+            )
+
+        # Для MVP корзина только
+        # из одного филиала.
+        branch_ids = {
+            offer.branch_id
+            for offer in offers
+        }
+
+        if len(branch_ids) != 1:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Cart must contain "
+                    "offers from one branch"
+                ),
+            )
+
+        created_orders = []
+
+        for offer in offers:
+            quantity = quantities[
+                offer.id
+            ]
+
+            if (
+                offer.status
+                != "active"
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"{offer.title} "
+                        "is unavailable"
+                    ),
+                )
+
+            if (
+                offer.pickup_end
+                <=
+                datetime.now(
+                    timezone.utc
+                )
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"{offer.title} "
+                        "has expired"
+                    ),
+                )
+
+            if (
+                offer.quantity_remaining
+                < quantity
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Not enough "
+                        f"{offer.title}. "
+                        f"Available: "
+                        f"{offer.quantity_remaining}"
+                    ),
+                )
+
+            offer.quantity_remaining -= (
+                quantity
+            )
+
+            if (
+                offer.quantity_remaining
+                == 0
+            ):
+                offer.status = (
+                    "sold_out"
+                )
+
+            unit_price = (
+                offer.sale_price
+            )
+
+            order = Order(
+                user_id=current_user.id,
+                offer_id=offer.id,
+                quantity=quantity,
+                unit_price=unit_price,
+                total_price=(
+                    unit_price
+                    * quantity
+                ),
+                status="reserved",
+                pickup_code=(
+                    generate_pickup_code()
+                ),
+            )
+
+            db.add(order)
+
+            created_orders.append(
+                order
+            )
+
+        db.commit()
+
+        for order in created_orders:
+            db.refresh(order)
+
+        return created_orders
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
 
 @router.get(
     "/{order_id}",
