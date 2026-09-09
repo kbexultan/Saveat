@@ -1,27 +1,53 @@
-import type { Metadata } from "next";
-import type { ReactNode } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import type {
+  Metadata,
+} from "next";
 
-import { AuthProvider } from "@/components/AuthProvider";
-import { CartProvider } from "@/components/CartProvider";
+import type {
+  ReactNode,
+} from "react";
+
+import {
+  Geist,
+  Geist_Mono,
+} from "next/font/google";
+
+import {
+  AuthProvider,
+} from "@/components/AuthProvider";
+
+import {
+  BusinessProvider,
+} from "@/components/BusinessProvider";
+
+import {
+  CartProvider,
+} from "@/components/CartProvider";
 
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
+
 const geistSans = Geist({
-  variable: "--font-geist-sans",
+  variable:
+    "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistMono =
+  Geist_Mono({
+    variable:
+      "--font-geist-mono",
+    subsets: ["latin"],
+  });
 
-export const metadata: Metadata = {
+
+export const metadata:
+  Metadata = {
   title: "SAVEAT",
-  description: "Save food. Save money.",
+  description:
+    "Save food. Save money.",
 };
+
 
 export default function RootLayout({
   children,
@@ -36,9 +62,11 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         <AuthProvider>
-          <CartProvider>
-            {children}
-          </CartProvider>
+          <BusinessProvider>
+            <CartProvider>
+              {children}
+            </CartProvider>
+          </BusinessProvider>
         </AuthProvider>
       </body>
     </html>

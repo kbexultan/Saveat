@@ -49,3 +49,9 @@ class User(Base):
         "Order",
         back_populates="user",
     )
+    
+    business_memberships = relationship(
+    "BusinessMember",
+    back_populates="user",
+    cascade="all, delete-orphan",
+)

@@ -102,3 +102,8 @@ class Offer(Base):
         "Order",
         back_populates="offer",
     )
+    
+    order_items = relationship(
+    "OrderItem",
+    back_populates="offer",
+)

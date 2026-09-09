@@ -132,12 +132,12 @@ export default function Header({
               </Link>
             )}
 
-            <button
-              type="button"
+            <Link
+              href="/business"
               className="rounded-xl bg-[#D87979] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#C96868]"
             >
               Для бизнеса
-            </button>
+            </Link>
           </div>
         )}
       </div>
