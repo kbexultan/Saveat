@@ -68,34 +68,27 @@ def build_order_response(
         .all()
     )
 
-    if order.branch_id is None:
-        raise RuntimeError(
-            "Order has no branch_id"
-        )
-
-    if order.business_name is None:
-        raise RuntimeError(
-            "Order has no business_name"
-        )
-
-    if order.branch_name is None:
-        raise RuntimeError(
-            "Order has no branch_name"
-        )
-
-    if order.address is None:
-        raise RuntimeError(
-            "Order has no address"
-        )
-
-    if order.pickup_start is None:
-        raise RuntimeError(
-            "Order has no pickup_start"
-        )
-
-    if order.pickup_end is None:
-        raise RuntimeError(
-            "Order has no pickup_end"
+    # Заказ старого формата
+    # (без snapshot заведения)
+    # отдать нечем. Раньше здесь
+    # был RuntimeError, из-за чего
+    # одна битая строка роняла
+    # весь список заказов в 500.
+    if (
+        order.branch_id is None
+        or order.business_name is None
+        or order.branch_name is None
+        or order.address is None
+        or order.pickup_start is None
+        or order.pickup_end is None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Order is stored in an "
+                "old format and cannot "
+                "be shown"
+            ),
         )
 
     return OrderDetailsResponse(
@@ -337,6 +330,18 @@ def create_checkout_order(
             raise HTTPException(
                 status_code=404,
                 detail="Business not found",
+            )
+
+        # В /offers/public такие бизнесы
+        # уже скрыты, но в корзине мог
+        # остаться старый товар.
+        if business.status != "active":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This business is "
+                    "not accepting orders"
+                ),
             )
 
         # --------------------------------
@@ -597,7 +602,13 @@ def get_orders(
             select(Order)
             .where(
                 Order.user_id
-                == current_user.id
+                == current_user.id,
+
+                # Заказы старого формата
+                # пропускаем, иначе весь
+                # список упадёт с ошибкой.
+                Order.branch_id
+                .is_not(None),
             )
             .order_by(
                 Order.created_at.desc()

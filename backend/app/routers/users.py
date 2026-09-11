@@ -1,12 +1,12 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserResponse
 
 
 router = APIRouter(
@@ -15,43 +15,8 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_user(
-    data: UserCreate,
-    db: Session = Depends(get_db),
-):
-    user = User(
-        full_name=data.full_name,
-        email=data.email,
-        phone=data.phone,
-    )
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    return user
-
-
-@router.get(
-    "",
-    response_model=list[UserResponse],
-)
-def get_users(
-    db: Session = Depends(get_db),
-):
-    result = db.execute(
-        select(User).order_by(
-            User.created_at.desc()
-        )
-    )
-
-    return result.scalars().all()
-
+# Регистрация живёт в /auth/register.
+# Здесь остаётся только чтение своего профиля.
 
 @router.get(
     "/{user_id}",
@@ -59,8 +24,24 @@ def get_users(
 )
 def get_user(
     user_id: UUID,
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db),
 ):
+    # Чужие профили с телефоном
+    # и email отдавать нельзя.
+    if user_id != current_user.id:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "You do not have access "
+                "to this user"
+            ),
+        )
+
     user = db.get(User, user_id)
 
     if user is None:

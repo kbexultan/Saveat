@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
@@ -24,6 +25,14 @@ router = APIRouter(
 )
 
 
+def normalize_email(value: str) -> str:
+    # Email всегда храним и ищем
+    # в нижнем регистре, иначе
+    # Bek@mail.ru и bek@mail.ru
+    # становятся разными аккаунтами.
+    return str(value).strip().lower()
+
+
 @router.post(
     "/register",
     response_model=UserResponse,
@@ -33,8 +42,13 @@ def register(
     data: RegisterRequest,
     db: Session = Depends(get_db),
 ):
+    email = normalize_email(data.email)
+    phone = data.phone.strip()
+
     existing_user = db.execute(
-        select(User).where(User.email == data.email)
+        select(User).where(
+            func.lower(User.email) == email
+        )
     ).scalar_one_or_none()
 
     if existing_user is not None:
@@ -43,16 +57,42 @@ def register(
             detail="Email already registered",
         )
 
+    existing_phone = db.execute(
+        select(User).where(User.phone == phone)
+    ).scalar_one_or_none()
+
+    if existing_phone is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Phone already registered",
+        )
+
     user = User(
-        full_name=data.full_name,
-        phone=data.phone,
-        email=data.email,
+        full_name=data.full_name.strip(),
+        phone=phone,
+        email=email,
         password_hash=hash_password(data.password),
     )
 
     db.add(user)
-    db.commit()
-    db.refresh(user)
+
+    try:
+        db.commit()
+        db.refresh(user)
+
+    except IntegrityError:
+        # Кто-то занял email или телефон
+        # между проверкой и commit.
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Email already registered",
+        )
+
+    except Exception:
+        db.rollback()
+        raise
 
     return user
 
@@ -65,8 +105,12 @@ def login(
     data: LoginRequest,
     db: Session = Depends(get_db),
 ):
+    email = normalize_email(data.email)
+
     user = db.execute(
-        select(User).where(User.email == data.email)
+        select(User).where(
+            func.lower(User.email) == email
+        )
     ).scalar_one_or_none()
 
     if user is None or not verify_password(
