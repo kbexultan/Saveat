@@ -23,6 +23,11 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        # Expo Web (npx expo start --web).
+        # Нативные iOS/Android клиенты
+        # CORS не используют.
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
     ],
     allow_credentials=True,
     allow_methods=["*"],

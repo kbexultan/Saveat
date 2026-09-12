@@ -27,6 +27,7 @@ from app.models.user import User
 from app.schemas.branch import (
     BranchCreate,
     BranchResponse,
+    BranchUpdate,
 )
 
 
@@ -178,5 +179,104 @@ def get_branch(
                 "Branch not found"
             ),
         )
+
+    return branch
+
+# --------------------------------
+# ОБНОВЛЕНИЕ ФИЛИАЛА
+# --------------------------------
+#
+# Владелец бизнеса меняет адрес,
+# координаты или часы работы.
+# Права проверяем по бизнесу,
+# которому принадлежит филиал,
+# а не по тому, что прислал клиент.
+
+@router.patch(
+    "/{branch_id}",
+    response_model=BranchResponse,
+)
+def update_branch(
+    branch_id: UUID,
+    data: BranchUpdate,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+    branch = db.get(
+        Branch,
+        branch_id,
+    )
+
+    if branch is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Branch not found"
+            ),
+        )
+
+    get_business_membership_or_403(
+        db=db,
+        user_id=current_user.id,
+        business_id=(
+            branch.business_id
+        ),
+        allowed_roles=(
+            MANAGE_BUSINESS_ROLES
+        ),
+    )
+
+    changes = data.model_dump(
+        exclude_unset=True,
+    )
+
+    if not changes:
+        return branch
+
+    opening_time = changes.get(
+        "opening_time",
+        branch.opening_time,
+    )
+
+    closing_time = changes.get(
+        "closing_time",
+        branch.closing_time,
+    )
+
+    if (
+        opening_time is not None
+        and closing_time is not None
+        and opening_time
+        == closing_time
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "opening_time and "
+                "closing_time cannot "
+                "be equal"
+            ),
+        )
+
+    for field, value in changes.items():
+        setattr(
+            branch,
+            field,
+            value,
+        )
+
+    try:
+        db.commit()
+        db.refresh(branch)
+
+    except Exception:
+        db.rollback()
+        raise
 
     return branch

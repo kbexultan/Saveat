@@ -20,3 +20,16 @@ frontend/.env.production.local
 # OS
 .DS_Store
 Thumbs.db
+# Mobile
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/.env
+mobile/.env.local
+mobile/ios/
+mobile/android/
+# Local tunnel files
+cloudflared.exe
+config.yml

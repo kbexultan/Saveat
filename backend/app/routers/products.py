@@ -27,6 +27,7 @@ from app.models.user import User
 from app.schemas.product import (
     ProductCreate,
     ProductResponse,
+    ProductUpdate,
 )
 
 
@@ -176,5 +177,76 @@ def get_product(
                 "Product not found"
             ),
         )
+
+    return product
+
+# --------------------------------
+# ОБНОВЛЕНИЕ ТОВАРА
+# --------------------------------
+#
+# Сюда же входит включение
+# и отключение товара (is_active).
+
+@router.patch(
+    "/{product_id}",
+    response_model=ProductResponse,
+)
+def update_product(
+    product_id: UUID,
+    data: ProductUpdate,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+    product = db.get(
+        Product,
+        product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Product not found"
+            ),
+        )
+
+    get_business_membership_or_403(
+        db=db,
+        user_id=current_user.id,
+        business_id=(
+            product.business_id
+        ),
+        allowed_roles=(
+            MANAGE_BUSINESS_ROLES
+        ),
+    )
+
+    changes = data.model_dump(
+        exclude_unset=True,
+    )
+
+    if not changes:
+        return product
+
+    for field, value in changes.items():
+        setattr(
+            product,
+            field,
+            value,
+        )
+
+    try:
+        db.commit()
+        db.refresh(product)
+
+    except Exception:
+        db.rollback()
+        raise
 
     return product

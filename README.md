@@ -257,6 +257,13 @@ cd Saveat/frontend
 npm run dev -- -p 3001
 ```
 
+## Терминал 3 — Mobile (по желанию)
+
+```bash
+cd Saveat/mobile
+npx expo start
+```
+
 После этого:
 
 ```text
@@ -268,6 +275,9 @@ http://127.0.0.1:8001
 
 Swagger:
 http://127.0.0.1:8001/docs
+
+Mobile (Metro):
+http://localhost:8081
 ```
 
 ---
@@ -583,7 +593,72 @@ http://localhost:3001
 
 ---
 
-# 20. Чек-лист
+# 20. Мобильное приложение (iOS / Android)
+
+Мобильное приложение живёт в папке `mobile/` — это React Native + Expo.
+
+Оно **не отдельный проект**: работает с тем же backend, той же базой,
+теми же пользователями и тем же JWT, что и сайт.
+
+```text
+Next.js web ─┐
+             ├─► FastAPI (backend) ─► PostgreSQL / Supabase
+React Native ┘
+```
+
+## Установка
+
+```bash
+cd Saveat/mobile
+npm install
+```
+
+## Запуск
+
+```bash
+cd Saveat/mobile
+npx expo start
+```
+
+Дальше:
+
+- нажать `a` — Android-эмулятор
+- нажать `i` — iOS-симулятор (только macOS)
+- отсканировать QR приложением **Expo Go** — реальный телефон
+
+## Адрес backend для телефона
+
+Скопируйте пример окружения:
+
+```bash
+cd Saveat/mobile
+cp .env.example .env
+```
+
+И укажите адрес API:
+
+| Где запускаете | `EXPO_PUBLIC_API_URL` |
+| --- | --- |
+| iOS-симулятор на том же компьютере | `http://127.0.0.1:8001` |
+| Android-эмулятор | `http://10.0.2.2:8001` |
+| Реальный телефон в той же Wi-Fi | `http://<IP-компьютера>:8001` |
+
+**Для реального телефона `127.0.0.1` не работает** — это адрес самого
+телефона. Нужен IP компьютера в локальной сети (`ipconfig` на Windows,
+`ifconfig` на macOS), например `http://192.168.1.50:8001`.
+
+Чтобы телефон видел backend, запускайте его не только на localhost:
+
+```bash
+cd Saveat/backend
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+```
+
+Подробности — в [`mobile/README.md`](mobile/README.md).
+
+---
+
+# 21. Чек-лист
 
 - [ ] Проект скачан через Git
 - [ ] `.env` от Бекса лежит в `backend/.env`
@@ -594,6 +669,14 @@ http://localhost:3001
 - [ ] Backend запущен на `8001`
 - [ ] Frontend запущен на `3001`
 - [ ] Открываешь `http://localhost:3001`
+
+Если работаешь с мобильным приложением:
+
+- [ ] Выполнен `npm install` в `mobile/`
+- [ ] `mobile/.env` создан из `mobile/.env.example`
+- [ ] `EXPO_PUBLIC_API_URL` указывает на backend (для телефона — IP компьютера)
+- [ ] Backend запущен с `--host 0.0.0.0`
+- [ ] `npx expo start` работает
 
 ---
 

@@ -168,6 +168,10 @@ export default function BusinessDashboardPage() {
             return;
         }
 
+        const businessId =
+            selectedMembership
+                .business.id;
+
         async function loadData() {
             const token =
                 localStorage.getItem(
@@ -180,10 +184,6 @@ export default function BusinessDashboardPage() {
                 );
                 return;
             }
-
-            const businessId =
-                selectedMembership
-                    .business.id;
 
             try {
                 setLoadingData(true);

@@ -254,6 +254,10 @@ export default function NewOfferPage() {
       return;
     }
 
+    const businessId =
+      selectedMembership
+        .business.id;
+
     async function loadData() {
       const token =
         localStorage.getItem(
@@ -267,10 +271,6 @@ export default function NewOfferPage() {
 
         return;
       }
-
-      const businessId =
-        selectedMembership
-          .business.id;
 
       try {
         setLoadingData(

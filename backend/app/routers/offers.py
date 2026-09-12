@@ -34,6 +34,7 @@ from app.schemas.offer import (
     OfferCreate,
     OfferPublicResponse,
     OfferResponse,
+    OfferUpdate,
 )
 
 
@@ -441,3 +442,229 @@ def get_offer(
         )
 
     return offer
+
+# --------------------------------
+# ОБНОВЛЕНИЕ OFFER
+# --------------------------------
+#
+# Здесь же включение/отключение
+# предложения (status).
+#
+# branch_id / product_id / type
+# менять нельзя: они определяют,
+# какому бизнесу принадлежит offer.
+
+@router.patch(
+    "/{offer_id}",
+    response_model=OfferResponse,
+)
+def update_offer(
+    offer_id: UUID,
+    data: OfferUpdate,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+    try:
+        # Блокируем offer: параллельный
+        # checkout не должен менять
+        # остаток, пока мы пересчитываем
+        # quantity_total.
+        offer = (
+            db.execute(
+                select(Offer)
+                .where(
+                    Offer.id
+                    == offer_id
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+
+        if offer is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Offer not found",
+            )
+
+        branch = db.get(
+            Branch,
+            offer.branch_id,
+        )
+
+        if branch is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Branch not found",
+            )
+
+        get_business_membership_or_403(
+            db=db,
+            user_id=current_user.id,
+            business_id=(
+                branch.business_id
+            ),
+            allowed_roles=(
+                MANAGE_BUSINESS_ROLES
+            ),
+        )
+
+        changes = data.model_dump(
+            exclude_unset=True,
+        )
+
+        if not changes:
+            db.rollback()
+            return offer
+
+        new_status = changes.pop(
+            "status",
+            None,
+        )
+
+        # --------------------------------
+        # ЦЕНЫ
+        # --------------------------------
+
+        original_price = changes.get(
+            "original_price",
+            offer.original_price,
+        )
+
+        sale_price = changes.get(
+            "sale_price",
+            offer.sale_price,
+        )
+
+        if sale_price > original_price:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "sale_price cannot be "
+                    "greater than "
+                    "original_price"
+                ),
+            )
+
+        # --------------------------------
+        # ВРЕМЯ ПОЛУЧЕНИЯ
+        # --------------------------------
+
+        pickup_start = changes.get(
+            "pickup_start",
+            offer.pickup_start,
+        )
+
+        pickup_end = changes.get(
+            "pickup_end",
+            offer.pickup_end,
+        )
+
+        if pickup_end <= pickup_start:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "pickup_end must be "
+                    "later than pickup_start"
+                ),
+            )
+
+        # --------------------------------
+        # КОЛИЧЕСТВО
+        # --------------------------------
+        #
+        # Забронированное покупателями
+        # количество уменьшать нельзя.
+
+        reserved = (
+            offer.quantity_total
+            - offer.quantity_remaining
+        )
+
+        quantity_total = changes.get(
+            "quantity_total",
+            offer.quantity_total,
+        )
+
+        if quantity_total < reserved:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Quantity cannot be "
+                    "lower than already "
+                    f"ordered amount: "
+                    f"{reserved}"
+                ),
+            )
+
+        quantity_remaining = (
+            quantity_total - reserved
+        )
+
+        for field, value in changes.items():
+            setattr(
+                offer,
+                field,
+                value,
+            )
+
+        offer.quantity_remaining = (
+            quantity_remaining
+        )
+
+        # --------------------------------
+        # СТАТУС
+        # --------------------------------
+
+        if new_status == "paused":
+            offer.status = "paused"
+
+        elif new_status == "active":
+            if quantity_remaining <= 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Increase quantity "
+                        "before activating "
+                        "this offer"
+                    ),
+                )
+
+            offer.status = "active"
+
+        else:
+            # Статус не присылали:
+            # приводим в соответствие
+            # с остатком.
+            if (
+                quantity_remaining <= 0
+                and offer.status
+                == "active"
+            ):
+                offer.status = "sold_out"
+
+            elif (
+                quantity_remaining > 0
+                and offer.status
+                == "sold_out"
+            ):
+                offer.status = "active"
+
+        db.commit()
+        db.refresh(offer)
+
+        return offer
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
