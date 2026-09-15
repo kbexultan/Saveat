@@ -236,10 +236,10 @@ export default function CartPage() {
     }
 
     return (
-        <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+        <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
             <Header variant="home" />
 
-            <section className="mx-auto max-w-5xl px-6 py-12">
+            <section className="saveat-screen mx-auto max-w-5xl px-6 py-12">
                 <div className="mb-8">
                     <p className="text-sm font-medium text-[#C5686D]">
                         SAVEAT
@@ -257,7 +257,7 @@ export default function CartPage() {
 
                 {/* Пустая корзина */}
                 {items.length === 0 && (
-                    <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
+                    <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
                         <div className="text-5xl">
                             🛒
                         </div>
@@ -276,7 +276,7 @@ export default function CartPage() {
                             onClick={() =>
                                 router.push("/")
                             }
-                            className="mt-5 rounded-xl bg-[#D87979] px-5 py-3 font-semibold text-white transition hover:bg-[#C96868]"
+                            className="mt-5 rounded-xl bg-primary px-5 py-3 font-semibold text-white transition hover:bg-primary-strong"
                         >
                             Смотреть предложения
                         </button>
@@ -441,7 +441,7 @@ export default function CartPage() {
                                                                         .id,
                                                                 )
                                                             }
-                                                            className="text-sm font-semibold text-[#C96868] transition hover:text-[#A94F55]"
+                                                            className="text-sm font-semibold text-primary-strong transition hover:text-[#A94F55]"
                                                         >
                                                             Удалить
                                                         </button>
@@ -455,7 +455,7 @@ export default function CartPage() {
                         </div>
 
                         {/* Checkout */}
-                        <aside className="h-fit rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)] lg:sticky lg:top-6">
+                        <aside className="h-fit saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)] lg:sticky lg:top-6">
                             <h2 className="text-xl font-bold">
                                 Ваш заказ
                             </h2>
@@ -571,7 +571,7 @@ export default function CartPage() {
                                     checkingOut ||
                                     authLoading
                                 }
-                                className="mt-6 w-full rounded-2xl bg-[#D87979] py-3.5 font-semibold text-white transition hover:bg-[#C96868] disabled:cursor-not-allowed disabled:opacity-60"
+                                className="mt-6 w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {checkingOut
                                     ? "Оформляем..."

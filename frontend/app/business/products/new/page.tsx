@@ -19,6 +19,7 @@ import {
 import {
   useBusiness,
 } from "@/components/BusinessProvider";
+import { MobileBottomNavigation } from "@/components/mobile/MobileBottomNavigation";
 
 
 const API_URL =
@@ -288,7 +289,7 @@ export default function NewProductPage() {
     !selectedMembership
   ) {
     return (
-      <main className="min-h-screen bg-[#F5ECE4] p-10 text-center text-[#3B2F2F]">
+      <main className="saveat-mobile-page min-h-screen bg-sand p-10 text-center text-ink">
         Загружаем...
       </main>
     );
@@ -300,13 +301,13 @@ export default function NewProductPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#F5ECE4] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <header className="border-b border-[#E4D5CB] bg-[#FFFDF9]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <div>
             <Link
               href="/business/dashboard"
-              className="text-2xl font-black text-[#D87979]"
+              className="text-2xl font-black text-primary"
             >
               SAVEAT
             </Link>
@@ -325,7 +326,7 @@ export default function NewProductPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-2xl px-6 py-10">
+      <section className="saveat-screen mx-auto max-w-2xl px-6 py-10">
         <div className="mb-7">
           <p className="text-sm font-semibold text-[#C5686D]">
             {business.name}
@@ -345,7 +346,7 @@ export default function NewProductPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7 shadow-sm"
+          className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7 shadow-sm"
         >
           <div className="space-y-5">
             <div>
@@ -367,7 +368,7 @@ export default function NewProductPage() {
                 }
                 placeholder="Круассан с миндалём"
                 required
-                className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
               />
             </div>
 
@@ -387,7 +388,7 @@ export default function NewProductPage() {
                     event.target.value,
                   )
                 }
-                className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
               >
                 <option value="">
                   Не выбрано
@@ -440,7 +441,7 @@ export default function NewProductPage() {
                 }
                 placeholder="2500"
                 required
-                className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
               />
 
               <p className="mt-2 text-xs text-[#927B71]">
@@ -469,7 +470,7 @@ export default function NewProductPage() {
                 }
                 rows={4}
                 placeholder="Свежий миндальный круассан..."
-                className="w-full resize-none rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                className="w-full resize-none saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
               />
             </div>
 
@@ -491,7 +492,7 @@ export default function NewProductPage() {
                   )
                 }
                 placeholder="https://..."
-                className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
               />
 
               <p className="mt-2 text-xs text-[#927B71]">
@@ -531,7 +532,7 @@ export default function NewProductPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-[#D87979] py-3.5 font-semibold text-white transition hover:bg-[#C96868] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading
                 ? "Создаём..."
@@ -540,6 +541,7 @@ export default function NewProductPage() {
           </div>
         </form>
       </section>
+      <MobileBottomNavigation mode="business" />
     </main>
   );
 }

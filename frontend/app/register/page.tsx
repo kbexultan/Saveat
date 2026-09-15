@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import Header from "@/components/Header";
+import {
+  describeApiError,
+  isNetworkError,
+  NETWORK_ERROR_MESSAGE,
+} from "@/lib/apiErrors";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
@@ -53,14 +58,8 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        if (data.detail === "Email already registered") {
-          throw new Error("Пользователь с таким email уже существует.");
-        }
-
         throw new Error(
-          typeof data.detail === "string"
-            ? data.detail
-            : "Не удалось создать аккаунт.",
+          describeApiError(data.detail, "Не удалось создать аккаунт."),
         );
       }
 
@@ -72,7 +71,9 @@ export default function RegisterPage() {
       setPassword("");
       setConfirmPassword("");
     } catch (err) {
-      if (err instanceof Error) {
+      if (isNetworkError(err)) {
+        setError(NETWORK_ERROR_MESSAGE);
+      } else if (err instanceof Error) {
         setError(err.message);
       } else {
         setError("Произошла неизвестная ошибка.");
@@ -83,7 +84,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       {/* Header */}
       <Header variant="auth" />
 
@@ -122,7 +123,7 @@ export default function RegisterPage() {
                   onChange={(event) => setFullName(event.target.value)}
                   placeholder="Имя"
                   required
-                  className="w-full rounded-2xl border border-[#e3cfc0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -142,7 +143,7 @@ export default function RegisterPage() {
                   onChange={(event) => setPhone(event.target.value)}
                   placeholder="+7 700 000 00 00"
                   required
-                  className="w-full rounded-2xl border border-[#e3cfc0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -162,7 +163,7 @@ export default function RegisterPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="name@example.com"
                   required
-                  className="w-full rounded-2xl border border-[#e3cfc0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -183,7 +184,7 @@ export default function RegisterPage() {
                   placeholder="Минимум 8 символов"
                   required
                   minLength={8}
-                  className="w-full rounded-2xl border border-[#e3cfc0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -206,7 +207,7 @@ export default function RegisterPage() {
                   placeholder="Повторите пароль"
                   required
                   minLength={8}
-                  className="w-full rounded-2xl border border-[#e3cfc0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -225,7 +226,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-[#D87979] py-3.5 font-semibold text-white transition hover:bg-[#C96868] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading
                   ? "Создаём аккаунт..."
@@ -237,7 +238,7 @@ export default function RegisterPage() {
               Уже есть аккаунт?{" "}
               <Link
                 href="/login"
-                className="font-semibold text-[#C96868] hover:underline"
+                className="font-semibold text-primary-strong hover:underline"
               >
                 Войти
               </Link>
@@ -245,7 +246,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="mt-7 text-center">
-            <p className="font-bold tracking-wide text-[#D87979]">
+            <p className="font-bold tracking-wide text-primary">
               SAVEAT
             </p>
 

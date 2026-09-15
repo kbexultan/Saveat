@@ -1,5 +1,6 @@
 import type {
   Metadata,
+  Viewport,
 } from "next";
 
 import type {
@@ -46,6 +47,20 @@ export const metadata:
   title: "SAVEAT",
   description:
     "Save food. Save money.",
+};
+
+
+/**
+ * viewport-fit=cover обязателен: без него env(safe-area-inset-*)
+ * на iPhone всегда равен нулю и плавающая навигация налезает
+ * на системный индикатор.
+ */
+export const viewport:
+  Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#fff7ef",
 };
 
 

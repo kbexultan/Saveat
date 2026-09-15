@@ -73,7 +73,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="auth" />
 
       <section className="flex min-h-[calc(100vh-93px)] items-center justify-center px-5 py-12">
@@ -115,7 +115,7 @@ export default function LoginPage() {
                   placeholder="name@example.com"
                   autoComplete="email"
                   required
-                  className="w-full rounded-2xl border border-[#e3cfc0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -137,7 +137,7 @@ export default function LoginPage() {
                   placeholder="Введите пароль"
                   autoComplete="current-password"
                   required
-                  className="w-full rounded-2xl border border-[#e3cfc0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-[#fffdf9] px-4 py-3.5 outline-none transition placeholder:text-[#b6a39a] focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -150,7 +150,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-[#D87979] py-3.5 font-semibold text-white transition hover:bg-[#C96868] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Входим..." : "Войти"}
               </button>
@@ -160,7 +160,7 @@ export default function LoginPage() {
               Нет аккаунта?{" "}
               <Link
                 href="/register"
-                className="font-semibold text-[#C96868] hover:underline"
+                className="font-semibold text-primary-strong hover:underline"
               >
                 Зарегистрироваться
               </Link>
@@ -168,7 +168,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-7 text-center">
-            <p className="font-bold tracking-wide text-[#D87979]">
+            <p className="font-bold tracking-wide text-primary">
               SAVEAT
             </p>
 

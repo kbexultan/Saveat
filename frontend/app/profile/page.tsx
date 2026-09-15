@@ -29,17 +29,17 @@ export default function ProfilePage() {
   */
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+      <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
         <Header variant="home" />
 
-        <section className="mx-auto max-w-5xl px-6 py-12">
+        <section className="saveat-screen mx-auto max-w-5xl px-6 py-12">
           <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
             <div className="h-[430px] animate-pulse rounded-[32px] border border-[#DFC2AA] bg-[#FFFAF5]" />
 
             <div className="space-y-6">
-              <div className="h-56 animate-pulse rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5]" />
+              <div className="h-56 animate-pulse saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5]" />
 
-              <div className="h-48 animate-pulse rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5]" />
+              <div className="h-48 animate-pulse saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5]" />
             </div>
           </div>
         </section>
@@ -55,15 +55,15 @@ export default function ProfilePage() {
     user.full_name?.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="home" />
 
-      <section className="mx-auto max-w-5xl px-6 py-12">
+      <section className="saveat-screen mx-auto max-w-5xl px-6 py-12">
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
           {/* Profile */}
           <div className="rounded-[32px] border border-[#DFC2AA] bg-[#FFFAF5] p-8 shadow-[0_20px_60px_rgba(91,60,44,0.08)]">
             <div className="flex items-center gap-5 border-b border-[#EADFD6] pb-7">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#D87979] text-3xl font-bold text-white">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary text-3xl font-bold text-white">
                 {firstLetter}
               </div>
 
@@ -137,7 +137,7 @@ export default function ProfilePage() {
 
           {/* Right */}
           <div className="space-y-6">
-            <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">
+            <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-[#C5686D]">
@@ -163,13 +163,13 @@ export default function ProfilePage() {
                 onClick={() =>
                   router.push("/orders")
                 }
-                className="mt-5 w-full rounded-2xl bg-[#D87979] py-3 text-sm font-semibold text-white transition hover:bg-[#C96868]"
+                className="mt-5 w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
               >
                 Посмотреть мои заказы
               </button>
             </div>
 
-            <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">
+            <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">
               <h2 className="text-lg font-bold">
                 Аккаунт
               </h2>

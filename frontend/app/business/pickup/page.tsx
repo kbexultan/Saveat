@@ -19,6 +19,7 @@ import {
 import {
   useBusiness,
 } from "@/components/BusinessProvider";
+import { MobileBottomNavigation } from "@/components/mobile/MobileBottomNavigation";
 
 
 const API_URL =
@@ -433,7 +434,7 @@ export default function BusinessPickupPage() {
     !selectedMembership
   ) {
     return (
-      <main className="min-h-screen bg-[#F5ECE4] p-10 text-center text-[#3B2F2F]">
+      <main className="saveat-mobile-page min-h-screen bg-sand p-10 text-center text-ink">
         Загружаем...
       </main>
     );
@@ -446,13 +447,13 @@ export default function BusinessPickupPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#F5ECE4] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <header className="border-b border-[#E4D5CB] bg-[#FFFDF9]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <div>
             <Link
               href="/business/dashboard"
-              className="text-2xl font-black text-[#D87979]"
+              className="text-2xl font-black text-primary"
             >
               SAVEAT
             </Link>
@@ -480,7 +481,7 @@ export default function BusinessPickupPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-3xl px-6 py-10">
+      <section className="saveat-screen mx-auto max-w-3xl px-6 py-10">
         <div className="text-center">
           <p className="text-sm font-semibold text-[#C5686D]">
             {business.name}
@@ -499,7 +500,7 @@ export default function BusinessPickupPage() {
 
         <form
           onSubmit={findOrder}
-          className="mx-auto mt-8 max-w-xl rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-6"
+          className="mx-auto mt-8 max-w-xl saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-6"
         >
           <label
             htmlFor="pickupCode"
@@ -521,13 +522,13 @@ export default function BusinessPickupPage() {
               }
               placeholder="SVT-XXXXXXXXXX"
               autoComplete="off"
-              className="min-w-0 flex-1 rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 font-bold tracking-wider outline-none focus:border-[#D87979]"
+              className="min-w-0 flex-1 saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 font-bold tracking-wider outline-none focus:border-[#D87979]"
             />
 
             <button
               type="submit"
               disabled={searching}
-              className="rounded-2xl bg-[#D87979] px-6 font-semibold text-white transition hover:bg-[#C96868] disabled:opacity-60"
+              className="rounded-2xl bg-primary px-6 font-semibold text-white transition hover:bg-primary-strong disabled:opacity-60"
             >
               {searching
                 ? "Ищем..."
@@ -695,7 +696,7 @@ export default function BusinessPickupPage() {
                 disabled={
                   confirming
                 }
-                className="mt-6 w-full rounded-2xl bg-[#D87979] py-4 text-lg font-bold text-white transition hover:bg-[#C96868] disabled:opacity-60"
+                className="mt-6 w-full rounded-2xl bg-primary py-4 text-lg font-bold text-white transition hover:bg-primary-strong disabled:opacity-60"
               >
                 {confirming
                   ? "Подтверждаем..."
@@ -716,6 +717,7 @@ export default function BusinessPickupPage() {
           </article>
         )}
       </section>
+      <MobileBottomNavigation mode="business" />
     </main>
   );
 }

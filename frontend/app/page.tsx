@@ -32,117 +32,70 @@ async function getOffers(): Promise<Offer[]> {
   }
 }
 
-function calculateDiscount(
-  originalPrice: number,
-  salePrice: number,
-) {
-  if (originalPrice <= 0) {
-    return 0;
-  }
-
-  return Math.round(
-    ((originalPrice - salePrice) / originalPrice) * 100,
-  );
-}
-
-function formatPickupTime(date: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Asia/Almaty",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
-}
-
-function getEmoji(category: string | null) {
-  const normalizedCategory =
-    category?.toLowerCase() ?? "";
-
-  if (
-    normalizedCategory.includes("dessert") ||
-    normalizedCategory.includes("десерт")
-  ) {
-    return "🍰";
-  }
-
-  if (
-    normalizedCategory.includes("bakery") ||
-    normalizedCategory.includes("выпеч")
-  ) {
-    return "🥐";
-  }
-
-  if (
-    normalizedCategory.includes("coffee") ||
-    normalizedCategory.includes("кофе")
-  ) {
-    return "☕";
-  }
-
-  return "🍴";
-}
+const categories = [
+  "Все",
+  "Десерты",
+  "Выпечка",
+  "Mystery Box",
+];
 
 export default async function Home() {
   const offers = await getOffers();
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen text-ink">
       <Header variant="home" />
 
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 py-14">
-        <div className="max-w-2xl">
-          <div className="mb-5 inline-flex rounded-full bg-[#F4DCDC] px-4 py-2 text-sm font-medium text-[#B85F68]">
+      <section className="saveat-screen mx-auto max-w-6xl px-6 py-8 sm:py-14">
+        {/* Hero */}
+        <div className="saveat-discovery-hero max-w-2xl">
+          <div className="mb-5 inline-flex rounded-pill bg-primary-tint px-4 py-2 text-caption font-semibold text-primary-strong">
             📍 Алматы
           </div>
 
-          <h2 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+          <h2 className="saveat-screen-title text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
             Забирай вкусную еду
-            <span className="text-[#D97A7A]">
-              {" "}
-              дешевле
-            </span>
+            <span className="text-primary"> дешевле</span>
           </h2>
 
-          <p className="mt-5 max-w-xl text-lg leading-8 text-[#806E68]">
+          <p className="mt-5 max-w-xl text-lead leading-7 text-muted sm:text-lg sm:leading-8">
             Кондитерские, кофейни и пекарни продают
             свежие остатки дня со скидкой до 70%.
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="mt-10 flex flex-wrap gap-3">
-          <button className="rounded-full bg-[#4B3A3A] px-5 py-2.5 text-sm font-medium text-white">
-            Все
-          </button>
-
-          <button className="rounded-full border border-[#DED2C7] bg-[#FFFDF9] px-5 py-2.5 text-sm font-medium text-[#6E5C5C] transition hover:bg-[#F3E9DF]">
-            Десерты
-          </button>
-
-          <button className="rounded-full border border-[#DED2C7] bg-[#FFFDF9] px-5 py-2.5 text-sm font-medium text-[#6E5C5C] transition hover:bg-[#F3E9DF]">
-            Выпечка
-          </button>
-
-          <button className="rounded-full border border-[#DED2C7] bg-[#FFFDF9] px-5 py-2.5 text-sm font-medium text-[#6E5C5C] transition hover:bg-[#F3E9DF]">
-            Mystery Box
-          </button>
+        {/* Категории: горизонтальная лента, без горизонтального скролла страницы */}
+        <div className="saveat-hscroll -mx-5 mt-7 flex snap-x gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:mt-10 sm:flex-wrap sm:gap-3 sm:overflow-visible sm:px-0">
+          {categories.map((category, index) => (
+            <button
+              key={category}
+              type="button"
+              className={`min-h-11 flex-none snap-start rounded-pill px-5 text-body font-semibold transition ${
+                index === 0
+                  ? "bg-ink text-white"
+                  : "bg-surface text-muted shadow-soft hover:bg-surface-blush hover:text-primary-strong"
+              }`}
+            >
+              {category}
+            </button>
+          ))}
         </div>
 
-        {/* Heading */}
-        <div className="mt-12 flex flex-wrap items-end justify-between gap-4">
+        {/* Заголовок списка */}
+        <div className="mt-9 flex flex-wrap items-end justify-between gap-4 sm:mt-12">
           <div>
-            <h3 className="text-2xl font-semibold">
+            <h3 className="text-section font-bold tracking-[-0.035em] sm:text-2xl">
               Предложения рядом
             </h3>
 
-            <p className="mt-1 text-sm text-[#9A8982]">
+            <p className="mt-1 text-caption text-subtle sm:text-sm">
               Заберите сегодня до закрытия
             </p>
           </div>
 
           <Link
             href="/map"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#D87979] bg-[#FFFDF9] px-5 py-3 text-sm font-semibold text-[#C96868] transition hover:bg-[#F7E7E1]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-chip bg-surface px-4 text-body font-semibold text-primary-strong shadow-soft transition hover:bg-surface-blush sm:px-5"
           >
             <svg
               width="18"
@@ -166,28 +119,28 @@ export default async function Home() {
               />
             </svg>
 
-            Показать на карте
+            На карте
           </Link>
         </div>
 
-        {/* Empty state */}
+        {/* Пустое состояние */}
         {offers.length === 0 && (
-          <div className="mt-8 rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
+          <div className="mt-7 rounded-card-lg bg-surface px-6 py-12 text-center shadow-soft">
             <div className="text-4xl">🍰</div>
 
-            <h4 className="mt-4 text-xl font-bold">
+            <h4 className="mt-4 text-section font-bold">
               Пока нет активных предложений
             </h4>
 
-            <p className="mt-2 text-sm text-[#806E68]">
+            <p className="mt-2 text-body leading-6 text-muted">
               Новые предложения появятся здесь, когда
               заведения опубликуют остатки.
             </p>
           </div>
         )}
 
-        {/* Real offers */}
-        <div className="mt-7 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Предложения */}
+        <div className="mt-6 grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {offers.map((offer) => (
             <OfferCard
               key={offer.id}
@@ -198,14 +151,14 @@ export default async function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-[#E7DDD2] bg-[#FFFDF9]">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-8 text-sm text-[#9B8982] sm:flex-row sm:items-center sm:justify-between">
+      <footer className="mt-10 bg-surface">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-caption text-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-sm">
           <div>
-            <p className="font-bold text-[#D97A7A]">
+            <p className="text-lead font-extrabold tracking-[-0.04em] text-primary">
               SAVEAT
             </p>
 
-            <p className="mt-1 text-xs">
+            <p className="mt-1 text-meta">
               Save food. Save money.
             </p>
           </div>

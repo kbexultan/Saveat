@@ -20,6 +20,7 @@ import {
 import {
   useBusiness,
 } from "@/components/BusinessProvider";
+import { MobileBottomNavigation } from "@/components/mobile/MobileBottomNavigation";
 
 
 const API_URL =
@@ -724,7 +725,7 @@ export default function NewOfferPage() {
     !selectedMembership
   ) {
     return (
-      <main className="min-h-screen bg-[#F5ECE4] p-10 text-center text-[#3B2F2F]">
+      <main className="saveat-mobile-page min-h-screen bg-sand p-10 text-center text-ink">
         Загружаем...
       </main>
     );
@@ -737,13 +738,13 @@ export default function NewOfferPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#F5ECE4] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <header className="border-b border-[#E4D5CB] bg-[#FFFDF9]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <div>
             <Link
               href="/business/dashboard"
-              className="text-2xl font-black text-[#D87979]"
+              className="text-2xl font-black text-primary"
             >
               SAVEAT
             </Link>
@@ -762,7 +763,7 @@ export default function NewOfferPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-2xl px-6 py-10">
+      <section className="saveat-screen mx-auto max-w-2xl px-6 py-10">
         <div className="mb-7">
           <p className="text-sm font-semibold text-[#C5686D]">
             {business.name}
@@ -781,13 +782,13 @@ export default function NewOfferPage() {
         </div>
 
         {loadingData ? (
-          <div className="rounded-[28px] bg-[#FFFDF9] p-8">
+          <div className="saveat-surface rounded-[28px] bg-[#FFFDF9] p-8">
             Загружаем товары и
             филиалы...
           </div>
         ) : branches.length ===
             0 ? (
-          <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7">
+          <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7">
             <h2 className="text-xl font-bold">
               Сначала добавьте филиал
             </h2>
@@ -800,14 +801,14 @@ export default function NewOfferPage() {
 
             <Link
               href="/business/branches/new"
-              className="mt-5 inline-block rounded-xl bg-[#D87979] px-5 py-3 font-semibold text-white"
+              className="mt-5 inline-block rounded-xl bg-primary px-5 py-3 font-semibold text-white"
             >
               Добавить филиал
             </Link>
           </div>
         ) : products.length ===
             0 ? (
-          <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7">
+          <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7">
             <h2 className="text-xl font-bold">
               Сначала добавьте товар
             </h2>
@@ -820,7 +821,7 @@ export default function NewOfferPage() {
 
             <Link
               href="/business/products/new"
-              className="mt-5 inline-block rounded-xl bg-[#D87979] px-5 py-3 font-semibold text-white"
+              className="mt-5 inline-block rounded-xl bg-primary px-5 py-3 font-semibold text-white"
             >
               Добавить товар
             </Link>
@@ -830,7 +831,7 @@ export default function NewOfferPage() {
             onSubmit={
               handleSubmit
             }
-            className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7 shadow-sm"
+            className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-7 shadow-sm"
           >
             <div className="space-y-5">
               <div>
@@ -851,7 +852,7 @@ export default function NewOfferPage() {
                     )
                   }
                   required
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 >
                   {branches.map(
                     (branch) => (
@@ -889,7 +890,7 @@ export default function NewOfferPage() {
                     )
                   }
                   required
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 >
                   {products.map(
                     (product) => (
@@ -936,7 +937,7 @@ export default function NewOfferPage() {
                     )
                   }
                   required
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 />
               </div>
 
@@ -959,7 +960,7 @@ export default function NewOfferPage() {
                   }
                   rows={3}
                   placeholder="Например: свежая выпечка сегодняшнего дня"
-                  className="w-full resize-none rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full resize-none saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 />
               </div>
 
@@ -969,7 +970,7 @@ export default function NewOfferPage() {
                     Обычная цена
                   </p>
 
-                  <div className="rounded-2xl bg-[#F5ECE4] px-4 py-3.5 font-bold">
+                  <div className="rounded-2xl bg-sand px-4 py-3.5 font-bold">
                     {originalPrice.toLocaleString(
                       "ru-RU",
                     )}{" "}
@@ -1001,7 +1002,7 @@ export default function NewOfferPage() {
                     }
                     placeholder="1100"
                     required
-                    className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                    className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                   />
                 </div>
               </div>
@@ -1036,7 +1037,7 @@ export default function NewOfferPage() {
                     )
                   }
                   required
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 />
               </div>
 
@@ -1062,7 +1063,7 @@ export default function NewOfferPage() {
                       )
                     }
                     required
-                    className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                    className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                   />
                 </div>
 
@@ -1087,7 +1088,7 @@ export default function NewOfferPage() {
                       )
                     }
                     required
-                    className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                    className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                   />
                 </div>
               </div>
@@ -1107,7 +1108,7 @@ export default function NewOfferPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-[#D87979] py-3.5 font-semibold text-white transition hover:bg-[#C96868] disabled:opacity-60"
+                className="w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong disabled:opacity-60"
               >
                 {loading
                   ? "Публикуем..."
@@ -1117,6 +1118,7 @@ export default function NewOfferPage() {
           </form>
         )}
       </section>
+      <MobileBottomNavigation mode="business" />
     </main>
   );
 }

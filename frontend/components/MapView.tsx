@@ -265,7 +265,7 @@ export default function MapView() {
               SAVEAT
             </p>
 
-            <h3 className="font-bold text-[#3B2F2F]">
+            <h3 className="font-bold text-ink">
               Ближайшие к вам
             </h3>
           </div>

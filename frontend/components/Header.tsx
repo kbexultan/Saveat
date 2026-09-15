@@ -4,10 +4,15 @@ import Link from "next/link";
 
 import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/CartProvider";
+import { MobileBottomNavigation } from "@/components/mobile/MobileBottomNavigation";
 
 type HeaderProps = {
   variant?: "home" | "auth";
 };
+
+/** Общая кнопка-иконка шапки: 44px тап-таргет, без тяжёлых бордеров. */
+const iconButtonClass =
+  "flex h-11 w-11 items-center justify-center rounded-chip bg-surface-blush text-muted shadow-soft transition hover:bg-primary-tint hover:text-primary-strong";
 
 export default function Header({
   variant = "home",
@@ -17,90 +22,38 @@ export default function Header({
     loading,
   } = useAuth();
 
-  const { totalItems } =
-    useCart();
+  const { totalItems } = useCart();
 
   return (
-    <header className="border-b border-[#eadfd6] bg-[#fffdf9]">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        {/* Logo */}
-        <Link
-          href="/"
-          className="block"
-        >
-          <h1 className="text-3xl font-bold tracking-tight text-[#D87979]">
-            SAVEAT
-          </h1>
+    <>
+      <header className="sticky top-0 z-40 bg-surface/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3 sm:px-6 sm:py-5">
+          {/* Логотип */}
+          <Link href="/" className="block">
+            <h1 className="text-[22px] font-extrabold tracking-[-0.06em] text-primary sm:text-3xl">
+              SAVEAT
+            </h1>
 
-          <p className="mt-0.5 text-sm text-[#A48070]">
-            Save food. Save money.
-          </p>
-        </Link>
-
-        {variant === "auth" ? (
-          <Link
-            href="/"
-            className="rounded-xl bg-[#D87979] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#C96868]"
-          >
-            На главную
+            <p className="mt-0.5 hidden text-caption text-subtle sm:block sm:text-sm">
+              Save food. Save money.
+            </p>
           </Link>
-        ) : (
-          <div className="flex items-center gap-3">
-            {/* Корзина */}
+
+          {variant === "auth" ? (
             <Link
-              href="/cart"
-              aria-label="Корзина"
-              title="Корзина"
-              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[#DDCEC3] bg-[#FFFDF9] text-[#5C4949] transition hover:border-[#D87979] hover:bg-[#F7E7E1] hover:text-[#D87979]"
+              href="/"
+              className="flex min-h-11 items-center rounded-chip bg-primary px-4 text-body font-bold text-white shadow-primary transition hover:bg-primary-strong sm:px-5"
             >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 4H5L7.3 15.2C7.5 16.2 8.4 17 9.5 17H17.5C18.5 17 19.4 16.3 19.7 15.3L21 9H7"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                <circle
-                  cx="10"
-                  cy="20"
-                  r="1.5"
-                  fill="currentColor"
-                />
-
-                <circle
-                  cx="18"
-                  cy="20"
-                  r="1.5"
-                  fill="currentColor"
-                />
-              </svg>
-
-              {totalItems > 0 && (
-                <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#D87979] px-1 text-[10px] font-bold text-white">
-                  {totalItems > 99
-                    ? "99+"
-                    : totalItems}
-                </span>
-              )}
+              На главную
             </Link>
-
-            {/* Auth */}
-            {loading ? (
-              <div className="h-11 w-11 rounded-full border border-[#DDCEC3] bg-[#F7EFE8]" />
-            ) : user ? (
+          ) : (
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Корзина */}
               <Link
-                href="/profile"
-                aria-label="Открыть профиль"
-                title="Профиль"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#DDCEC3] bg-[#FFFDF9] text-[#5C4949] transition hover:border-[#D87979] hover:bg-[#F7E7E1] hover:text-[#D87979]"
+                href="/cart"
+                aria-label="Корзина"
+                title="Корзина"
+                className={`relative ${iconButtonClass}`}
               >
                 <svg
                   width="22"
@@ -110,37 +63,80 @@ export default function Header({
                   aria-hidden="true"
                 >
                   <path
-                    d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  />
-
-                  <path
-                    d="M4 22C4 17.5817 7.58172 14 12 14C16.4183 14 20 17.5817 20 22"
+                    d="M3 4H5L7.3 15.2C7.5 16.2 8.4 17 9.5 17H17.5C18.5 17 19.4 16.3 19.7 15.3L21 9H7"
                     stroke="currentColor"
                     strokeWidth="1.8"
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                </svg>
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                className="rounded-xl border border-[#DDCEC3] bg-[#FFFDF9] px-5 py-3 text-sm font-medium text-[#5C4949] transition hover:bg-[#F3E9E0]"
-              >
-                Войти
-              </Link>
-            )}
 
-            <Link
-              href="/business"
-              className="rounded-xl bg-[#D87979] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#C96868]"
-            >
-              Для бизнеса
-            </Link>
-          </div>
-        )}
-      </div>
-    </header>
+                  <circle cx="10" cy="20" r="1.5" fill="currentColor" />
+
+                  <circle cx="18" cy="20" r="1.5" fill="currentColor" />
+                </svg>
+
+                {totalItems > 0 && (
+                  <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-pill bg-primary px-1 text-[10px] font-bold text-white">
+                    {totalItems > 99 ? "99+" : totalItems}
+                  </span>
+                )}
+              </Link>
+
+              {/* Auth */}
+              {loading ? (
+                <div className="h-11 w-11 rounded-chip bg-sand-deep" />
+              ) : user ? (
+                <Link
+                  href="/profile"
+                  aria-label="Открыть профиль"
+                  title="Профиль"
+                  className={iconButtonClass}
+                >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="12"
+                      cy="8"
+                      r="3.8"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    />
+
+                    <path
+                      d="M4.5 20.4c0-3.8 3.35-6.3 7.5-6.3s7.5 2.5 7.5 6.3"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  className="flex h-11 items-center justify-center rounded-chip bg-surface-blush px-4 text-body font-semibold text-muted shadow-soft transition hover:bg-primary-tint sm:px-5"
+                >
+                  Войти
+                </Link>
+              )}
+
+              <Link
+                href="/business"
+                className="inline-flex min-h-11 items-center rounded-chip bg-primary px-3 text-caption font-bold text-white shadow-primary transition hover:bg-primary-strong sm:px-5 sm:text-body"
+              >
+                <span className="sm:hidden">Бизнес</span>
+                <span className="hidden sm:inline">Для бизнеса</span>
+              </Link>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {variant === "home" ? <MobileBottomNavigation /> : null}
+    </>
   );
 }

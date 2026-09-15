@@ -21,6 +21,12 @@ import {
   useBusiness,
 } from "@/components/BusinessProvider";
 
+import {
+  describeApiError,
+  isNetworkError,
+  NETWORK_ERROR_MESSAGE,
+} from "@/lib/apiErrors";
+
 
 const API_URL =
   process.env
@@ -239,10 +245,10 @@ export default function BusinessRegisterPage() {
         }
 
         throw new Error(
-          typeof data.detail ===
-            "string"
-            ? data.detail
-            : "Не удалось создать бизнес.",
+          describeApiError(
+            data.detail,
+            "Не удалось создать бизнес.",
+          ),
         );
       }
 
@@ -258,11 +264,17 @@ export default function BusinessRegisterPage() {
         "/business/dashboard",
       );
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Произошла ошибка.",
-      );
+      if (isNetworkError(err)) {
+        setError(
+          NETWORK_ERROR_MESSAGE,
+        );
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Произошла ошибка.",
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -271,7 +283,7 @@ export default function BusinessRegisterPage() {
 
   if (authLoading) {
     return (
-      <main className="min-h-screen bg-[#f1d7be]">
+      <main className="saveat-mobile-page min-h-screen bg-sand">
         <Header variant="auth" />
 
         <div className="p-10 text-center">
@@ -283,10 +295,10 @@ export default function BusinessRegisterPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="auth" />
 
-      <section className="mx-auto max-w-2xl px-5 py-12">
+      <section className="saveat-screen mx-auto max-w-2xl px-5 py-12">
         <div className="rounded-[32px] border border-[#DFC2AA] bg-[#FFFDF9] p-7 shadow-[0_20px_60px_rgba(91,60,44,0.10)] sm:p-9">
           <div className="mb-8">
             <div className="inline-flex rounded-full bg-[#F7DFDC] px-3 py-1.5 text-xs font-semibold text-[#BD656B]">
@@ -332,7 +344,7 @@ export default function BusinessRegisterPage() {
                     }
                     placeholder="Имя и фамилия"
                     required
-                    className="rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                    className="saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                   />
 
                   <input
@@ -348,7 +360,7 @@ export default function BusinessRegisterPage() {
                     }
                     placeholder="+7 700 000 00 00"
                     required
-                    className="rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                    className="saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                   />
 
                   <input
@@ -364,7 +376,7 @@ export default function BusinessRegisterPage() {
                     }
                     placeholder="Email"
                     required
-                    className="rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                    className="saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                   />
 
                   <input
@@ -381,7 +393,7 @@ export default function BusinessRegisterPage() {
                     placeholder="Пароль"
                     required
                     minLength={8}
-                    className="rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                    className="saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                   />
 
                   <input
@@ -400,7 +412,7 @@ export default function BusinessRegisterPage() {
                     placeholder="Повторите пароль"
                     required
                     minLength={8}
-                    className="rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979] sm:col-span-2"
+                    className="saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979] sm:col-span-2"
                   />
                 </div>
               </div>
@@ -425,7 +437,7 @@ export default function BusinessRegisterPage() {
                   }
                   placeholder="Название заведения"
                   required
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 />
 
                 <textarea
@@ -440,7 +452,7 @@ export default function BusinessRegisterPage() {
                   }
                   placeholder="Короткое описание заведения"
                   rows={4}
-                  className="w-full resize-none rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full resize-none saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 />
 
                 <input
@@ -455,7 +467,7 @@ export default function BusinessRegisterPage() {
                     )
                   }
                   placeholder="Ссылка на логотип — необязательно"
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none focus:border-[#D87979]"
                 />
               </div>
             </div>
@@ -469,7 +481,7 @@ export default function BusinessRegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-[#D87979] py-3.5 font-semibold text-white transition hover:bg-[#C96868] disabled:opacity-60"
+              className="w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong disabled:opacity-60"
             >
               {loading
                 ? "Создаём..."
@@ -482,7 +494,7 @@ export default function BusinessRegisterPage() {
               Уже зарегистрированы?{" "}
               <Link
                 href="/business/login"
-                className="font-semibold text-[#C96868] hover:underline"
+                className="font-semibold text-primary-strong hover:underline"
               >
                 Войти
               </Link>

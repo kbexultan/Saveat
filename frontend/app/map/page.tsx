@@ -14,10 +14,10 @@ const MapView = dynamic(
 
 export default function MapPage() {
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="home" />
 
-      <section className="mx-auto max-w-6xl px-6 py-10">
+      <section className="saveat-screen mx-auto max-w-6xl px-6 py-10">
         <div className="mb-6 flex items-end justify-between">
           <div>
             <div className="mb-3 inline-flex rounded-full bg-[#F4DCDC] px-4 py-2 text-sm font-medium text-[#B85F68]">
@@ -35,7 +35,7 @@ export default function MapPage() {
 
           <Link
             href="/"
-            className="rounded-xl bg-[#D87979] px-5 py-3 text-sm font-semibold text-white hover:bg-[#C96868]"
+            className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-strong"
           >
             ← Назад
           </Link>

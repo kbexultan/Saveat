@@ -170,7 +170,7 @@ export default function BusinessLoginPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="auth" />
 
       <section className="flex min-h-[calc(100vh-93px)] items-center justify-center px-5 py-12">
@@ -218,7 +218,7 @@ export default function BusinessLoginPage() {
                   autoComplete="email"
                   required
                   placeholder="owner@example.com"
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -242,7 +242,7 @@ export default function BusinessLoginPage() {
                   }
                   autoComplete="current-password"
                   required
-                  className="w-full rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
+                  className="w-full saveat-field rounded-2xl border border-[#E3CFC0] bg-white px-4 py-3.5 outline-none transition focus:border-[#D87979] focus:ring-4 focus:ring-[#D87979]/10"
                 />
               </div>
 
@@ -255,7 +255,7 @@ export default function BusinessLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-[#D87979] py-3.5 font-semibold text-white transition hover:bg-[#C96868] disabled:opacity-60"
+                className="w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong disabled:opacity-60"
               >
                 {loading
                   ? "Входим..."
@@ -267,7 +267,7 @@ export default function BusinessLoginPage() {
               Нет бизнеса?{" "}
               <Link
                 href="/business/register"
-                className="font-semibold text-[#C96868] hover:underline"
+                className="font-semibold text-primary-strong hover:underline"
               >
                 Зарегистрировать
               </Link>

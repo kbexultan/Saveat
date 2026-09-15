@@ -360,10 +360,10 @@ export default function OrdersPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="home" />
 
-      <section className="mx-auto max-w-5xl px-6 py-12">
+      <section className="saveat-screen mx-auto max-w-5xl px-6 py-12">
         <div className="mb-8">
           <p className="text-sm font-medium text-[#C5686D]">
             SAVEAT
@@ -387,7 +387,7 @@ export default function OrdersPage() {
 
         {(authLoading ||
           loading) && (
-          <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-8">
+          <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-8">
             Загружаем заказы...
           </div>
         )}
@@ -396,7 +396,7 @@ export default function OrdersPage() {
           !loading &&
           orders.length ===
             0 && (
-            <div className="rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
+            <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
               <div className="text-5xl">
                 🛍️
               </div>
@@ -416,7 +416,7 @@ export default function OrdersPage() {
                 onClick={() =>
                   router.push("/")
                 }
-                className="mt-5 rounded-xl bg-[#D87979] px-5 py-3 font-semibold text-white transition hover:bg-[#C96868]"
+                className="mt-5 rounded-xl bg-primary px-5 py-3 font-semibold text-white transition hover:bg-primary-strong"
               >
                 Смотреть предложения
               </button>
@@ -453,7 +453,7 @@ export default function OrdersPage() {
                       key={
                         order.id
                       }
-                      className={`overflow-hidden rounded-[28px] border bg-[#FFFDF9] shadow-[0_15px_45px_rgba(91,60,44,0.07)] ${
+                      className={`overflow-hidden saveat-surface rounded-[28px] border bg-[#FFFDF9] shadow-[0_15px_45px_rgba(91,60,44,0.07)] ${
                         isCancelled
                           ? "border-[#DDD1C8] opacity-75"
                           : "border-[#DFC2AA]"
@@ -686,7 +686,7 @@ export default function OrdersPage() {
                                 `/orders/${order.id}`,
                               )
                             }
-                            className="rounded-xl bg-[#D87979] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#C96868]"
+                            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-strong"
                           >
                             Открыть заказ
                           </button>
@@ -704,7 +704,7 @@ export default function OrdersPage() {
                                 cancellingId ===
                                 order.id
                               }
-                              className="rounded-xl border border-[#D87979] px-5 py-2.5 text-sm font-semibold text-[#C96868] transition hover:bg-[#F7E7E1] disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded-xl border border-[#D87979] px-5 py-2.5 text-sm font-semibold text-primary-strong transition hover:bg-[#F7E7E1] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {cancellingId ===
                               order.id

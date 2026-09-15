@@ -337,10 +337,10 @@ export default function OrderPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="home" />
 
-      <section className="mx-auto max-w-4xl px-6 py-12">
+      <section className="saveat-screen mx-auto max-w-4xl px-6 py-12">
         <button
           type="button"
           onClick={() =>
@@ -348,14 +348,14 @@ export default function OrderPage() {
               "/orders",
             )
           }
-          className="mb-6 text-sm font-semibold text-[#A45F62] transition hover:text-[#C96868]"
+          className="mb-6 text-sm font-semibold text-[#A45F62] transition hover:text-primary-strong"
         >
           ← Мои заказы
         </button>
 
         {(loading ||
           authLoading) && (
-          <div className="rounded-[28px] bg-[#FFFDF9] p-8">
+          <div className="saveat-surface rounded-[28px] bg-[#FFFDF9] p-8">
             Загружаем заказ...
           </div>
         )}
@@ -372,7 +372,7 @@ export default function OrderPage() {
               {/* Success */}
               {order.status ===
                 "reserved" && (
-                <div className="mb-6 rounded-[28px] border border-[#CFE1C9] bg-[#F4FAF2] p-6">
+                <div className="mb-6 saveat-surface rounded-[28px] border border-[#CFE1C9] bg-[#F4FAF2] p-6">
                   <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#DDEED8] text-2xl">
                       ✓
@@ -613,7 +613,7 @@ export default function OrderPage() {
                       disabled={
                         cancelling
                       }
-                      className="mt-6 w-full rounded-2xl border border-[#D87979] py-3.5 font-semibold text-[#C96868] transition hover:bg-[#F7E7E1] disabled:opacity-50"
+                      className="mt-6 w-full rounded-2xl border border-[#D87979] py-3.5 font-semibold text-primary-strong transition hover:bg-[#F7E7E1] disabled:opacity-50"
                     >
                       {cancelling
                         ? "Отменяем..."

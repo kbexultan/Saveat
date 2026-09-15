@@ -32,7 +32,7 @@ export default function BusinessPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#f1d7be] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <Header variant="auth" />
 
       <section className="mx-auto flex min-h-[calc(100vh-93px)] max-w-6xl items-center px-6 py-14">
@@ -117,7 +117,7 @@ export default function BusinessPage() {
 
                 <Link
                   href="/business/dashboard"
-                  className="mt-7 block w-full rounded-2xl bg-[#D87979] py-3.5 text-center font-semibold text-white transition hover:bg-[#C96868]"
+                  className="mt-7 block w-full rounded-2xl bg-primary py-3.5 text-center font-semibold text-white transition hover:bg-primary-strong"
                 >
                   Открыть кабинет
                 </Link>
@@ -144,7 +144,7 @@ export default function BusinessPage() {
 
                 <Link
                   href="/business/register"
-                  className="mt-7 block w-full rounded-2xl bg-[#D87979] py-3.5 text-center font-semibold text-white transition hover:bg-[#C96868]"
+                  className="mt-7 block w-full rounded-2xl bg-primary py-3.5 text-center font-semibold text-white transition hover:bg-primary-strong"
                 >
                   Создать бизнес
                 </Link>
@@ -164,7 +164,7 @@ export default function BusinessPage() {
 
                 <Link
                   href="/business/login"
-                  className="mt-7 block w-full rounded-2xl bg-[#D87979] py-3.5 text-center font-semibold text-white transition hover:bg-[#C96868]"
+                  className="mt-7 block w-full rounded-2xl bg-primary py-3.5 text-center font-semibold text-white transition hover:bg-primary-strong"
                 >
                   Войти
                 </Link>

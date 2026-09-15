@@ -18,6 +18,7 @@ import {
 import {
   useBusiness,
 } from "@/components/BusinessProvider";
+import { MobileBottomNavigation } from "@/components/mobile/MobileBottomNavigation";
 
 
 const API_URL =
@@ -283,7 +284,7 @@ export default function BusinessOrdersPage() {
     !selectedMembership
   ) {
     return (
-      <main className="min-h-screen bg-[#F5ECE4] p-10 text-center text-[#3B2F2F]">
+      <main className="saveat-mobile-page min-h-screen bg-sand p-10 text-center text-ink">
         Загружаем...
       </main>
     );
@@ -295,13 +296,13 @@ export default function BusinessOrdersPage() {
 
 
   return (
-    <main className="min-h-screen bg-[#F5ECE4] text-[#3B2F2F]">
+    <main className="saveat-mobile-page min-h-screen bg-sand text-ink">
       <header className="border-b border-[#E4D5CB] bg-[#FFFDF9]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <div>
             <Link
               href="/business/dashboard"
-              className="text-2xl font-black text-[#D87979]"
+              className="text-2xl font-black text-primary"
             >
               SAVEAT
             </Link>
@@ -320,7 +321,7 @@ export default function BusinessOrdersPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-10">
+      <section className="saveat-screen mx-auto max-w-6xl px-6 py-10">
         <div>
           <p className="text-sm font-semibold text-[#C5686D]">
             {business.name}
@@ -343,12 +344,12 @@ export default function BusinessOrdersPage() {
         )}
 
         {loading ? (
-          <div className="mt-8 rounded-[28px] bg-[#FFFDF9] p-8">
+          <div className="mt-8 saveat-surface rounded-[28px] bg-[#FFFDF9] p-8">
             Загружаем заказы...
           </div>
         ) : orders.length ===
             0 ? (
-          <div className="mt-8 rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-10 text-center">
+          <div className="mt-8 saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] p-10 text-center">
             <div className="text-4xl">
               📦
             </div>
@@ -383,7 +384,7 @@ export default function BusinessOrdersPage() {
                     key={
                       order.id
                     }
-                    className="rounded-[28px] border border-[#E4D5CB] bg-[#FFFDF9] p-6 shadow-sm"
+                    className="saveat-surface rounded-[28px] border border-[#E4D5CB] bg-[#FFFDF9] p-6 shadow-sm"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-5">
                       <div>
@@ -540,6 +541,7 @@ export default function BusinessOrdersPage() {
           </div>
         )}
       </section>
+      <MobileBottomNavigation mode="business" />
     </main>
   );
 }
