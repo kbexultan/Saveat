@@ -278,3 +278,13 @@ export type CheckoutPayload = {
   items: CheckoutItem[];
   payment_method: PaymentMethod;
 };
+
+export type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  order_id: string | null;
+  is_read: boolean;
+  created_at: string;
+};

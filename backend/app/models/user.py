@@ -49,9 +49,23 @@ class User(Base):
         "Order",
         back_populates="user",
     )
-    
+
     business_memberships = relationship(
-    "BusinessMember",
-    back_populates="user",
-    cascade="all, delete-orphan",
-)
+        "BusinessMember",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    favorites = relationship(
+        "Favorite",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    notifications = relationship(
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

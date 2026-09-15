@@ -21,6 +21,11 @@ import {
 } from "@/components/BusinessProvider";
 import { MobileBottomNavigation } from "@/components/mobile/MobileBottomNavigation";
 
+import {
+  fetchCategories,
+  type Category,
+} from "@/lib/categories";
+
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -54,6 +59,14 @@ export default function NewProductPage() {
     category,
     setCategory,
   ] = useState("");
+
+  // Список категорий тянем с бэкенда, а не держим копию в форме:
+  // прошлая копия разошлась со справочником, и товары сохранялись
+  // с категориями, под которые на главной не было ни одной кнопки.
+  const [
+    categories,
+    setCategories,
+  ] = useState<Category[]>([]);
 
   const [
     imageUrl,
@@ -116,6 +129,21 @@ export default function NewProductPage() {
     selectedMembership,
     router,
   ]);
+
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchCategories().then((list) => {
+      if (!cancelled) {
+        setCategories(list);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
 
   async function handleSubmit(
@@ -394,30 +422,22 @@ export default function NewProductPage() {
                   Не выбрано
                 </option>
 
-                <option value="desserts">
-                  Десерты
-                </option>
-
-                <option value="bakery">
-                  Выпечка
-                </option>
-
-                <option value="cakes">
-                  Торты
-                </option>
-
-                <option value="sandwiches">
-                  Сэндвичи
-                </option>
-
-                <option value="ready_meals">
-                  Готовая еда
-                </option>
-
-                <option value="other">
-                  Другое
-                </option>
+                {categories.map((item) => (
+                  <option
+                    key={item.slug}
+                    value={item.slug}
+                  >
+                    {item.label}
+                  </option>
+                ))}
               </select>
+
+              {categories.length === 0 && (
+                <p className="mt-2 text-sm text-[#8B746C]">
+                  Список категорий не загрузился. Товар можно сохранить
+                  без категории и проставить её позже.
+                </p>
+              )}
             </div>
 
             <div>

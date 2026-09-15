@@ -15,6 +15,11 @@ from app.business_access import (
 )
 from app.database import get_db
 
+from app.notifications import (
+    ORDER_PICKED_UP,
+    create_notification,
+)
+
 from app.models.branch import Branch
 from app.models.business_member import BusinessMember
 from app.models.order import Order
@@ -369,6 +374,19 @@ def confirm_business_pickup(
 
         order.picked_up_at = (
             db_now
+        )
+
+        create_notification(
+            db,
+            user_id=order.user_id,
+            type=ORDER_PICKED_UP,
+            title="Заказ выдан",
+            body=(
+                f"Заказ {order.pickup_code} "
+                f"в «{order.branch_name}» выдан. "
+                "Приятного аппетита!"
+            ),
+            order_id=order.id,
         )
 
         db.commit()

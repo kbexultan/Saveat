@@ -2,12 +2,47 @@
 
 import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
+import { useFavorites } from "@/components/FavoritesProvider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+
+/** «1 предложение», «2 предложения», «5 предложений». */
+function formatOfferCount(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+
+  if (mod10 === 1 && mod100 !== 11) {
+    return `${count} предложение`;
+  }
+
+  if (
+    mod10 >= 2 &&
+    mod10 <= 4 &&
+    (mod100 < 12 || mod100 > 14)
+  ) {
+    return `${count} предложения`;
+  }
+
+  return `${count} предложений`;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
+
+  /*
+    Провайдер избранного живёт в layout и уже загрузил список,
+    поэтому счётчик показываем без отдельного запроса.
+
+    favoriteOffers — только доступные сейчас предложения: бэкенд
+    отсекает снятые, распроданные и просроченные. Считаем именно их,
+    иначе на странице избранного окажется меньше карточек, чем
+    обещает счётчик.
+  */
+  const {
+    favoriteOffers,
+    loading: favoritesLoading,
+  } = useFavorites();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,6 +72,8 @@ export default function ProfilePage() {
             <div className="h-[430px] animate-pulse rounded-[32px] border border-[#DFC2AA] bg-[#FFFAF5]" />
 
             <div className="space-y-6">
+              <div className="h-56 animate-pulse saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5]" />
+
               <div className="h-56 animate-pulse saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5]" />
 
               <div className="h-48 animate-pulse saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5]" />
@@ -166,6 +203,49 @@ export default function ProfilePage() {
                 className="mt-5 w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
               >
                 Посмотреть мои заказы
+              </button>
+            </div>
+
+            <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#C5686D]">
+                    SAVEAT
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-bold">
+                    Избранное
+                  </h2>
+                </div>
+
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F7DFDC] text-xl">
+                  ❤️
+
+                  {!favoritesLoading && favoriteOffers.length > 0 ? (
+                    <span className="absolute -right-1.5 -top-1.5 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                      {favoriteOffers.length > 99
+                        ? "99+"
+                        : favoriteOffers.length}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm leading-6 text-[#8B746C]">
+                {favoritesLoading
+                  ? "Загружаем сохранённые предложения…"
+                  : favoriteOffers.length === 0
+                    ? "Вы пока ничего не сохранили. Нажмите на сердце у предложения, и оно окажется здесь."
+                    : `${formatOfferCount(favoriteOffers.length)} доступно прямо сейчас.`}
+              </p>
+
+              <button
+                onClick={() =>
+                  router.push("/favorites")
+                }
+                className="mt-5 w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
+              >
+                Открыть избранное
               </button>
             </div>
 

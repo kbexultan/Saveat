@@ -21,6 +21,7 @@ const knownMessages: Record<string, string> = {
   "Phone already registered": "Этот номер телефона уже привязан к другому аккаунту.",
   "Invalid credentials": "Неверный email или пароль.",
   "Incorrect email or password": "Неверный email или пароль.",
+  "Offer is not available": "Предложение уже недоступно и не было добавлено в избранное.",
 };
 
 /** Человеческие названия полей формы. */

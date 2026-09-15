@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import {
   describeApiError,
@@ -13,6 +14,7 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -238,6 +240,14 @@ export default function RegisterPage() {
               Уже есть аккаунт?{" "}
               <Link
                 href="/login"
+                onClick={(event) => {
+                  if (!window.location.search) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  router.push(`/login${window.location.search}`);
+                }}
                 className="font-semibold text-primary-strong hover:underline"
               >
                 Войти

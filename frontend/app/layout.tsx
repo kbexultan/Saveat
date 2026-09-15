@@ -24,6 +24,18 @@ import {
   CartProvider,
 } from "@/components/CartProvider";
 
+import {
+  FavoritesProvider,
+} from "@/components/FavoritesProvider";
+
+import {
+  ToastProvider,
+} from "@/components/ToastProvider";
+
+import {
+  NotificationsProvider,
+} from "@/components/NotificationsProvider";
+
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
@@ -76,12 +88,23 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        {/*
+          ToastProvider выше NotificationsProvider: второй показывает
+          новые уведомления тостами, значит на момент его монтирования
+          useToast() уже должен работать.
+        */}
         <AuthProvider>
-          <BusinessProvider>
-            <CartProvider>
-              {children}
-            </CartProvider>
-          </BusinessProvider>
+          <ToastProvider>
+            <NotificationsProvider>
+              <FavoritesProvider>
+                <BusinessProvider>
+                  <CartProvider>
+                    {children}
+                  </CartProvider>
+                </BusinessProvider>
+              </FavoritesProvider>
+            </NotificationsProvider>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

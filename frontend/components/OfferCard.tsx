@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
+import { FavoriteButton } from "@/components/FavoriteButton";
+
+import {
+  calculateDiscount,
+  formatPickupTime,
+} from "@/lib/offers";
 
 export type Offer = {
   id: string;
@@ -45,27 +51,6 @@ export type Offer = {
   business_id: string;
   business_name: string;
 };
-
-function calculateDiscount(
-  originalPrice: number,
-  salePrice: number,
-) {
-  if (originalPrice <= 0) {
-    return 0;
-  }
-
-  return Math.round(
-    ((originalPrice - salePrice) / originalPrice) * 100,
-  );
-}
-
-function formatPickupTime(date: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Asia/Almaty",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
-}
 
 function getEmoji(category: string | null) {
   const value = category?.toLowerCase() ?? "";
@@ -145,6 +130,8 @@ export default function OfferCard({ offer }: { offer: Offer }) {
     <article className="flex h-full flex-col overflow-hidden rounded-card-lg bg-surface shadow-soft transition hover:shadow-card">
       {/* Фото */}
       <div className="relative flex h-44 shrink-0 items-center justify-center overflow-hidden bg-linear-to-br from-sand-deep to-sand-blush sm:h-52">
+        <FavoriteButton offer={offer} />
+
         {offer.product_image_url ? (
           <img
             src={offer.product_image_url}
@@ -160,7 +147,7 @@ export default function OfferCard({ offer }: { offer: Offer }) {
         </span>
 
         {soldOut ? (
-          <span className="absolute left-3 top-3 rounded-pill bg-ink/85 px-3 py-1.5 text-caption font-bold text-white">
+          <span className="absolute left-3 top-16 rounded-pill bg-ink/85 px-3 py-1.5 text-caption font-bold text-white">
             Распродано
           </span>
         ) : null}

@@ -15,6 +15,14 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.database import get_db
 
+from app.notifications import (
+    ORDER_CANCELLED,
+    ORDER_CREATED,
+    ORDER_PICKED_UP,
+    create_notification,
+    notify_business_members,
+)
+
 from app.models.branch import Branch
 from app.models.business import Business
 from app.models.offer import Offer
@@ -488,6 +496,22 @@ def create_checkout_order(
             grand_total
         )
 
+        # Уведомление создаём до commit'а: оно должно попасть в ту же
+        # транзакцию, что и заказ, иначе при откате останется сообщение
+        # о заказе, которого нет.
+        notify_business_members(
+            db,
+            business_id=business.id,
+            type=ORDER_CREATED,
+            title="Новый заказ",
+            body=(
+                f"{current_user.full_name} забронировал заказ "
+                f"на {grand_total:.0f} ₸ в «{branch.name}». "
+                f"Код выдачи: {order.pickup_code}."
+            ),
+            order_id=order.id,
+        )
+
         db.commit()
         db.refresh(order)
 
@@ -861,6 +885,30 @@ def cancel_order(
             "cancelled"
         )
 
+        # Заведению важно узнать об отмене: оно вернуло товар в продажу
+        # и, возможно, уже готовило заказ к выдаче.
+        if order.branch_id is not None:
+            cancelled_branch = db.get(
+                Branch,
+                order.branch_id,
+            )
+
+            if cancelled_branch is not None:
+                notify_business_members(
+                    db,
+                    business_id=(
+                        cancelled_branch.business_id
+                    ),
+                    type=ORDER_CANCELLED,
+                    title="Заказ отменён",
+                    body=(
+                        f"{current_user.full_name} отменил заказ "
+                        f"{order.pickup_code} "
+                        f"в «{cancelled_branch.name}»."
+                    ),
+                    order_id=order.id,
+                )
+
         db.commit()
         db.refresh(order)
 
@@ -958,6 +1006,19 @@ def confirm_pickup(
         datetime.now(
             timezone.utc
         )
+    )
+
+    create_notification(
+        db,
+        user_id=order.user_id,
+        type=ORDER_PICKED_UP,
+        title="Заказ получен",
+        body=(
+            f"Заказ {order.pickup_code} "
+            f"в «{order.branch_name}» отмечен как выданный. "
+            "Приятного аппетита!"
+        ),
+        order_id=order.id,
     )
 
     db.commit()

@@ -9,6 +9,8 @@ from pydantic import (
     field_validator,
 )
 
+from app.categories import normalize_category
+
 
 class ProductCreate(BaseModel):
     business_id: UUID
@@ -17,6 +19,14 @@ class ProductCreate(BaseModel):
     category: str | None = None
     image_url: str | None = None
     base_price: Decimal
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        return normalize_category(value)
 
 
 class ProductResponse(BaseModel):
@@ -68,3 +78,11 @@ class ProductUpdate(BaseModel):
             )
 
         return cleaned
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        return normalize_category(value)

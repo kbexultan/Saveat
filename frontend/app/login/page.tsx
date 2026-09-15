@@ -6,9 +6,40 @@ import { useRouter } from "next/navigation";
 
 import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
+import { describeApiError } from "@/lib/apiErrors";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
+
+const PENDING_FAVORITE_NOTICE_KEY = "pending_favorite_notice";
+
+function getSafeNextPath() {
+  const nextPath = new URLSearchParams(window.location.search).get("next");
+
+  if (!nextPath) {
+    return "/";
+  }
+
+  try {
+    const target = new URL(nextPath, window.location.origin);
+
+    if (target.origin !== window.location.origin) {
+      return "/";
+    }
+
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return "/";
+  }
+}
+
+function getPendingFavoriteId() {
+  const offerId = new URLSearchParams(window.location.search).get("favorite");
+
+  return offerId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(offerId)
+    ? offerId
+    : null;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,9 +89,45 @@ export default function LoginPage() {
         data.access_token,
       );
 
+      const pendingFavoriteId = getPendingFavoriteId();
+
+      sessionStorage.removeItem(PENDING_FAVORITE_NOTICE_KEY);
+
+      if (pendingFavoriteId) {
+        try {
+          const favoriteResponse = await fetch(`${API_URL}/favorites/${pendingFavoriteId}`, {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${data.access_token}`,
+            },
+          });
+
+          if (!favoriteResponse.ok) {
+            let notice = "Вы вошли, но предложение не удалось добавить в избранное.";
+
+            try {
+              const favoriteError: { detail?: unknown } =
+                await favoriteResponse.json();
+
+              notice = describeApiError(favoriteError.detail, notice);
+            } catch {
+              // Оставляем понятное сообщение по умолчанию.
+            }
+
+            sessionStorage.setItem(PENDING_FAVORITE_NOTICE_KEY, notice);
+          }
+        } catch {
+          // Вход не должен ломаться из-за временной ошибки избранного.
+          sessionStorage.setItem(
+            PENDING_FAVORITE_NOTICE_KEY,
+            "Вы вошли, но предложение не удалось добавить в избранное.",
+          );
+        }
+      }
+
       await refreshUser();
 
-      router.push("/");
+      router.replace(getSafeNextPath());
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -160,6 +227,14 @@ export default function LoginPage() {
               Нет аккаунта?{" "}
               <Link
                 href="/register"
+                onClick={(event) => {
+                  if (!window.location.search) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  router.push(`/register${window.location.search}`);
+                }}
                 className="font-semibold text-primary-strong hover:underline"
               >
                 Зарегистрироваться

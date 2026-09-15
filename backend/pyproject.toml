@@ -10,5 +10,6 @@ dependencies = [
     "pwdlib[argon2]>=0.3.1",
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.13.0",
+    "pywebpush>=2.2.0",
     "sqlalchemy>=2.0.52",
 ]

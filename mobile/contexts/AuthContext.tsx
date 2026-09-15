@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { api, setUnauthorizedHandler } from "@/lib/api";
+import { registerForPush } from "@/lib/push";
 import { clearToken, setToken } from "@/lib/storage";
 import type { LoginPayload, RegisterPayload, User } from "@/types/api";
 
@@ -89,6 +90,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => setUnauthorizedHandler(null);
   }, []);
+
+  /*
+    Регистрируем устройство для push, как только появился пользователь.
+
+    Токен привязывается к аккаунту на сервере, поэтому регистрация
+    должна идти именно после входа, а не при старте приложения.
+    Ошибку глушим: без push приложение работает полностью, уведомления
+    всё равно видны в списке.
+  */
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void registerForPush().then((result) => {
+      if (!cancelled && result.reason) {
+        console.info("Push недоступен:", result.reason);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const logout = useCallback(async () => {
     await clearToken();

@@ -5,6 +5,9 @@ from app.database import test_database_connection
 
 from app.routers.businesses import router as businesses_router
 from app.routers.branches import router as branches_router
+from app.routers.categories import router as categories_router
+from app.routers.notifications import router as notifications_router
+from app.routers.push import router as push_router
 from app.routers.products import router as products_router
 from app.routers.offers import router as offers_router
 from app.routers.orders import router as orders_router
@@ -12,6 +15,7 @@ from app.routers.users import router as users_router
 from app.routers.auth import router as auth_router
 from app.routers.business_auth import (router as business_auth_router,)
 from app.routers.business_orders import (router as business_orders_router,)
+from app.routers.favorites import router as favorites_router
 
 app = FastAPI(
     title="SAVEAT API",
@@ -43,6 +47,10 @@ app.include_router(orders_router)
 app.include_router(auth_router)
 app.include_router(business_auth_router)
 app.include_router(business_orders_router)
+app.include_router(favorites_router)
+app.include_router(categories_router)
+app.include_router(notifications_router)
+app.include_router(push_router)
 
 @app.get("/")
 def root():

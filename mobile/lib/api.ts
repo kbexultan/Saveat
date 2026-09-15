@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 
 import { clearToken, getToken } from "@/lib/storage";
 import type {
+  AppNotification,
   Branch,
   BranchCreatePayload,
   BranchUpdatePayload,
@@ -468,6 +469,57 @@ export const api = {
         )}/confirm`,
         { method: "POST", auth: true },
       );
+    },
+  },
+  notifications: {
+    list(limit = 30, signal?: AbortSignal) {
+      return request<AppNotification[]>(
+        `/notifications?limit=${limit}`,
+        { auth: true, signal },
+      );
+    },
+
+    unreadCount(signal?: AbortSignal) {
+      return request<{ unread: number }>(
+        "/notifications/unread-count",
+        { auth: true, signal },
+      );
+    },
+
+    markRead(notificationId: string) {
+      return request<void>(
+        `/notifications/${notificationId}/read`,
+        { method: "POST", auth: true },
+      );
+    },
+
+    markAllRead() {
+      return request<void>("/notifications/read-all", {
+        method: "POST",
+        auth: true,
+      });
+    },
+  },
+
+  push: {
+    /** Регистрирует Expo push-токен как подписку устройства. */
+    subscribe(expoPushToken: string) {
+      return request<void>("/push/subscribe", {
+        method: "POST",
+        auth: true,
+        body: {
+          endpoint: expoPushToken,
+          platform: "expo",
+        },
+      });
+    },
+
+    unsubscribe(expoPushToken: string) {
+      return request<void>("/push/unsubscribe", {
+        method: "POST",
+        auth: true,
+        body: { endpoint: expoPushToken },
+      });
     },
   },
 };

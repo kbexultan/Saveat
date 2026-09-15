@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/CartProvider";
+import NotificationBell from "@/components/NotificationBell";
 import { MobileBottomNavigation } from "@/components/mobile/MobileBottomNavigation";
 
 type HeaderProps = {
@@ -48,6 +49,33 @@ export default function Header({
             </Link>
           ) : (
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Колокольчик сам прячется у неавторизованных. */}
+              <NotificationBell />
+
+              {/* Избранное: на мобильном доступно из нижней навигации. */}
+              <Link
+                href="/favorites"
+                aria-label="Избранное"
+                title="Избранное"
+                className="hidden h-11 w-11 items-center justify-center rounded-chip bg-surface-blush text-muted shadow-soft transition hover:bg-primary-tint hover:text-primary-strong md:flex"
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </Link>
+
               {/* Корзина */}
               <Link
                 href="/cart"
@@ -126,9 +154,39 @@ export default function Header({
 
               <Link
                 href="/business"
-                className="inline-flex min-h-11 items-center rounded-chip bg-primary px-3 text-caption font-bold text-white shadow-primary transition hover:bg-primary-strong sm:px-5 sm:text-body"
+                aria-label="Для бизнеса"
+                title="Для бизнеса"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-chip bg-primary text-white shadow-primary transition hover:bg-primary-strong sm:w-auto sm:gap-2 sm:px-5 sm:text-body sm:font-bold"
               >
-                <span className="sm:hidden">Бизнес</span>
+                <svg
+                  width="21"
+                  height="21"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 10.5V20h16v-9.5M3 10.5l2-6.5h14l2 6.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M3 10.5c0 1.4 1.1 2.5 2.5 2.5S8 11.9 8 10.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9.5 20v-4h5v4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
                 <span className="hidden sm:inline">Для бизнеса</span>
               </Link>
             </div>

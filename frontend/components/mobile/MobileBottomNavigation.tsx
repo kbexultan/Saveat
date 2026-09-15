@@ -7,7 +7,7 @@ import { useCart } from "@/components/CartProvider";
 
 type NavigationMode = "customer" | "business";
 
-type IconName = "home" | "map" | "bag" | "user" | "plus" | "chart" | "scan";
+type IconName = "home" | "map" | "bag" | "user" | "plus" | "chart" | "scan" | "heart";
 
 function NavigationIcon({ name }: { name: IconName }) {
   const common = {
@@ -59,6 +59,12 @@ function NavigationIcon({ name }: { name: IconName }) {
           <path d="M4 12h16" {...common} />
         </>
       )}
+      {name === "heart" && (
+        <path
+          d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z"
+          {...common}
+        />
+      )}
       {name === "plus" && <path d="M12 5v14M5 12h14" {...common} />}
     </svg>
   );
@@ -78,7 +84,7 @@ const customerItems: NavigationItem[] = [
   { href: "/", label: "Главная", icon: "home", match: "/" },
   { href: "/map", label: "Карта", icon: "map", match: "/map" },
   { href: "/cart", label: "Корзина", icon: "bag", match: "/cart", accent: true, cartCount: true },
-  { href: "/orders", label: "Заказы", icon: "chart", match: "/orders" },
+  { href: "/favorites", label: "Избранное", icon: "heart", match: "/favorites" },
   { href: "/profile", label: "Профиль", icon: "user", match: "/profile" },
 ];
 

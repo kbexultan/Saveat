@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   CircleMarker,
   MapContainer,
@@ -9,66 +15,75 @@ import {
   useMap,
 } from "react-leaflet";
 
+import type { CircleMarker as LeafletCircleMarker } from "leaflet";
+
+import type { Offer } from "@/components/OfferCard";
+
+import {
+  formatPickupWindow,
+  formatPrice,
+} from "@/lib/offers";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
+
+/** Центр Алматы: запасная позиция, пока нечего показывать. */
+const ALMATY_CENTER: [number, number] = [43.2389, 76.8897];
+
 type UserLocation = {
   lat: number;
   lng: number;
 };
 
-type Place = {
-  id: number;
-  business: string;
-  branch: string;
+type BranchPoint = {
+  id: string;
+  businessName: string;
+  branchName: string;
   address: string;
-  title: string;
-  price: number;
-  oldPrice: number;
-  pickup: string;
-  remaining: number;
   latitude: number;
   longitude: number;
+  offers: Offer[];
 };
 
-const places: Place[] = [
-  {
-    id: 1,
-    business: "Sweet Cake",
-    branch: "Sweet Cake Abaya",
-    address: "Abaya Avenue 50, Almaty",
-    title: "Medovik",
-    price: 1500,
-    oldPrice: 2500,
-    pickup: "20:00–21:00",
-    remaining: 4,
-    latitude: 43.2389,
-    longitude: 76.8897,
-  },
-  {
-    id: 2,
-    business: "Coffee Boom",
-    branch: "Coffee Boom Center",
-    address: "Almaty",
-    title: "Croissant Box",
-    price: 1900,
-    oldPrice: 3200,
-    pickup: "19:30–21:00",
-    remaining: 3,
-    latitude: 43.2445,
-    longitude: 76.9272,
-  },
-  {
-    id: 3,
-    business: "Dessert Lab",
-    branch: "Dessert Lab",
-    address: "Almaty",
-    title: "Mystery Sweet Box",
-    price: 2500,
-    oldPrice: 4500,
-    pickup: "20:30–22:00",
-    remaining: 2,
-    latitude: 43.2258,
-    longitude: 76.9055,
-  },
-];
+/**
+ * Собирает предложения в точки выдачи: на карте нужен один маркер на
+ * заведение, а не по маркеру на каждое предложение — иначе три оффера
+ * одной пекарни рисуются поверх друг друга в одной координате.
+ */
+function groupByBranch(offers: Offer[]): BranchPoint[] {
+  const points = new Map<string, BranchPoint>();
+
+  for (const offer of offers) {
+    // latitude/longitude в модели точки необязательные. Без координат
+    // маркер поставить некуда, поэтому такие предложения на карту не
+    // попадают — в каталоге они при этом остаются видимыми.
+    if (
+      typeof offer.latitude !== "number" ||
+      typeof offer.longitude !== "number"
+    ) {
+      continue;
+    }
+
+    const existing = points.get(offer.branch_id);
+
+    if (existing) {
+      existing.offers.push(offer);
+      continue;
+    }
+
+    points.set(offer.branch_id, {
+      id: offer.branch_id,
+      businessName: offer.business_name,
+      branchName: offer.branch_name,
+      address: offer.address,
+      latitude: offer.latitude,
+      longitude: offer.longitude,
+      offers: [offer],
+    });
+  }
+
+  return [...points.values()];
+}
 
 function toRadians(value: number) {
   return (value * Math.PI) / 180;
@@ -106,6 +121,22 @@ function formatDistance(distanceKm: number) {
   return `${distanceKm.toFixed(1)} км`;
 }
 
+function build2GisRoute(
+  longitude: number,
+  latitude: number,
+) {
+  /*
+    Раньше здесь был deep link dgis://, который открывается только при
+    установленном приложении: на десктопе такая ссылка молча ничего не
+    делает. Веб-версия работает везде, а на телефоне её перехватывает
+    установленное приложение.
+  */
+  return (
+    "https://2gis.kz/almaty/directions/points/" +
+    `%7C${longitude}%2C${latitude}`
+  );
+}
+
 function RecenterMap({
   location,
 }: {
@@ -130,7 +161,132 @@ function RecenterMap({
   return null;
 }
 
+type FocusRequest = {
+  branchId: string;
+  /** Метка времени: нужна, чтобы повторный клик по той же точке сработал. */
+  requestedAt: number;
+};
+
+/**
+ * Перелёт к точке по клику в списке.
+ *
+ * Живёт внутри MapContainer, потому что useMap() доступен только
+ * потомкам карты, а список отрисован снаружи — поверх неё.
+ */
+function FocusBranch({
+  request,
+  branches,
+  markersRef,
+}: {
+  request: FocusRequest | null;
+  branches: BranchPoint[];
+  markersRef: React.RefObject<
+    Map<string, LeafletCircleMarker>
+  >;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!request) {
+      return;
+    }
+
+    const branch = branches.find(
+      (item) => item.id === request.branchId,
+    );
+
+    if (!branch) {
+      return;
+    }
+
+    const marker = markersRef.current?.get(branch.id);
+
+    const target: [number, number] = [
+      branch.latitude,
+      branch.longitude,
+    ];
+
+    // Ближе не подъезжаем, если пользователь уже приблизил карту сам.
+    const targetZoom = Math.max(map.getZoom(), 16);
+
+    const alreadyThere =
+      map.getZoom() === targetZoom &&
+      map.getCenter().distanceTo(target) < 1;
+
+    if (alreadyThere) {
+      marker?.openPopup();
+      return;
+    }
+
+    /*
+      Попап открываем только после перелёта. Если открыть сразу,
+      Leaflet начнёт автоматически подвигать карту, чтобы попап
+      поместился в окно, и это подерётся с анимацией flyTo.
+    */
+    function handleMoveEnd() {
+      marker?.openPopup();
+    }
+
+    map.once("moveend", handleMoveEnd);
+
+    map.flyTo(target, targetZoom, {
+      duration: 0.8,
+    });
+
+    return () => {
+      map.off("moveend", handleMoveEnd);
+    };
+  }, [request, branches, map, markersRef]);
+
+  return null;
+}
+
+/** Подгоняет масштаб под точки, пока пользователь не нашёл себя сам. */
+function FitToBranches({
+  branches,
+  enabled,
+}: {
+  branches: BranchPoint[];
+  enabled: boolean;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!enabled || branches.length === 0) {
+      return;
+    }
+
+    if (branches.length === 1) {
+      map.setView(
+        [branches[0].latitude, branches[0].longitude],
+        15,
+      );
+
+      return;
+    }
+
+    map.fitBounds(
+      branches.map(
+        (branch) =>
+          [branch.latitude, branch.longitude] as [
+            number,
+            number,
+          ],
+      ),
+      {
+        padding: [48, 48],
+      },
+    );
+  }, [branches, enabled, map]);
+
+  return null;
+}
+
 export default function MapView() {
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [loadingOffers, setLoadingOffers] = useState(true);
+  const [offersError, setOffersError] = useState("");
+
   const [userLocation, setUserLocation] =
     useState<UserLocation | null>(null);
 
@@ -138,34 +294,99 @@ export default function MapView() {
   const [locationError, setLocationError] =
     useState("");
 
-  const sortedPlaces = useMemo(() => {
+  const [focusRequest, setFocusRequest] =
+    useState<FocusRequest | null>(null);
+
+  // Ссылки на маркеры: по ним открываем попап точки, выбранной в списке.
+  const markersRef = useRef(
+    new Map<string, LeafletCircleMarker>(),
+  );
+
+  const focusBranch = useCallback((branchId: string) => {
+    setFocusRequest({
+      branchId,
+      requestedAt: Date.now(),
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOffers() {
+      setLoadingOffers(true);
+      setOffersError("");
+
+      try {
+        const response = await fetch(
+          `${API_URL}/offers/public`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Request failed: ${response.status}`,
+          );
+        }
+
+        const data: Offer[] = await response.json();
+
+        if (!cancelled) {
+          setOffers(data);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load offers for map:",
+          error,
+        );
+
+        if (!cancelled) {
+          setOffersError(
+            "Не удалось загрузить предложения.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingOffers(false);
+        }
+      }
+    }
+
+    void loadOffers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const branches = useMemo(
+    () => groupByBranch(offers),
+    [offers],
+  );
+
+  const sortedBranches = useMemo(() => {
     if (!userLocation) {
-      return places.map((place) => ({
-        ...place,
+      return branches.map((branch) => ({
+        ...branch,
         distance: null as number | null,
       }));
     }
 
-    return places
-      .map((place) => {
-        const distance = calculateDistance(
+    return branches
+      .map((branch) => ({
+        ...branch,
+        distance: calculateDistance(
           userLocation.lat,
           userLocation.lng,
-          place.latitude,
-          place.longitude,
-        );
-
-        return {
-          ...place,
-          distance,
-        };
-      })
+          branch.latitude,
+          branch.longitude,
+        ),
+      }))
       .sort(
         (a, b) =>
           (a.distance ?? Infinity) -
           (b.distance ?? Infinity),
       );
-  }, [userLocation]);
+  }, [branches, userLocation]);
 
   function findMyLocation() {
     setLocationError("");
@@ -226,16 +447,11 @@ export default function MapView() {
     );
   }
 
-  function build2GisRoute(
-    longitude: number,
-    latitude: number,
-  ) {
-    return `dgis://2gis.ru/routeSearch/rsType/car/to/${longitude},${latitude}`;
-  }
+  const hasLocation = userLocation !== null;
 
   return (
     <div className="relative h-full w-full">
-      {/* Location button */}
+      {/* Кнопка геолокации */}
       <div className="absolute right-4 top-4 z-[1000] flex flex-col items-end gap-2">
         <button
           type="button"
@@ -257,48 +473,78 @@ export default function MapView() {
         )}
       </div>
 
-      {/* Nearest places */}
-      {userLocation && (
-        <div className="absolute bottom-5 left-5 z-[1000] w-[290px] overflow-hidden rounded-2xl border border-[#E2C8B5] bg-[#FFFDF9] shadow-lg">
+      {/* Состояние загрузки и ошибки данных */}
+      {(loadingOffers || offersError) && (
+        <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 rounded-xl bg-[#FFFDF9] px-4 py-2 text-sm font-semibold text-[#5C4949] shadow-md">
+          {loadingOffers
+            ? "Загружаем предложения…"
+            : offersError}
+        </div>
+      )}
+
+      {!loadingOffers &&
+        !offersError &&
+        branches.length === 0 && (
+          <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 rounded-xl bg-[#FFFDF9] px-4 py-2 text-sm font-semibold text-[#5C4949] shadow-md">
+            Сейчас нет активных предложений
+          </div>
+        )}
+
+      {/* Список точек: показываем и без геолокации, иначе кликать не по чему */}
+      {sortedBranches.length > 0 && (
+        <div className="absolute bottom-5 left-5 z-[1000] w-[290px] max-w-[calc(100%-2.5rem)] overflow-hidden rounded-2xl border border-[#E2C8B5] bg-[#FFFDF9] shadow-lg">
           <div className="border-b border-[#EEE0D5] px-4 py-3">
             <p className="text-xs font-medium text-[#C5686D]">
               SAVEAT
             </p>
 
             <h3 className="font-bold text-ink">
-              Ближайшие к вам
+              {hasLocation
+                ? "Ближайшие к вам"
+                : "Точки выдачи"}
             </h3>
+
+            <p className="mt-0.5 text-xs text-[#9A8176]">
+              Нажмите, чтобы показать на карте
+            </p>
           </div>
 
-          <div>
-            {sortedPlaces.map((place, index) => (
-              <div
-                key={place.id}
-                className="flex items-center justify-between gap-3 border-b border-[#F0E6DE] px-4 py-3 last:border-b-0"
+          <div className="max-h-[232px] overflow-y-auto">
+            {sortedBranches.map((branch, index) => (
+              <button
+                key={branch.id}
+                type="button"
+                onClick={() => focusBranch(branch.id)}
+                aria-label={`Показать на карте: ${branch.businessName}, ${branch.address}`}
+                className="flex w-full items-center justify-between gap-3 border-b border-[#F0E6DE] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#F9EFE9] focus:bg-[#F9EFE9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D87979]"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-[#4B3A3A]">
-                    {index + 1}. {place.business}
+                    {index + 1}. {branch.businessName}
                   </p>
 
                   <p className="truncate text-xs text-[#9A8176]">
-                    {place.branch}
+                    {branch.address}
                   </p>
                 </div>
 
-                <span className="shrink-0 rounded-full bg-[#F7DFDC] px-2.5 py-1 text-xs font-semibold text-[#B85F68]">
-                  {place.distance !== null
-                    ? formatDistance(place.distance)
-                    : ""}
-                </span>
-              </div>
+                {branch.distance !== null ? (
+                  <span className="shrink-0 rounded-full bg-[#F7DFDC] px-2.5 py-1 text-xs font-semibold text-[#B85F68]">
+                    {formatDistance(branch.distance)}
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-[#F7DFDC] px-2.5 py-1 text-xs font-semibold text-[#B85F68]">
+                    {branch.offers.length}
+                  </span>
+                )}
+              </button>
             ))}
           </div>
         </div>
       )}
 
       <MapContainer
-        center={[43.2389, 76.8897]}
+        center={ALMATY_CENTER}
         zoom={13}
         scrollWheelZoom
         style={{
@@ -311,13 +557,22 @@ export default function MapView() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Branches */}
-        {sortedPlaces.map((place) => (
+        {sortedBranches.map((branch) => (
           <CircleMarker
-            key={place.id}
+            key={branch.id}
+            ref={(instance) => {
+              if (instance) {
+                markersRef.current.set(
+                  branch.id,
+                  instance,
+                );
+              } else {
+                markersRef.current.delete(branch.id);
+              }
+            }}
             center={[
-              place.latitude,
-              place.longitude,
+              branch.latitude,
+              branch.longitude,
             ]}
             radius={11}
             pathOptions={{
@@ -330,15 +585,11 @@ export default function MapView() {
             <Popup minWidth={250}>
               <div
                 style={{
-                  width: "220px",
+                  width: "230px",
                   color: "#3B2F2F",
                 }}
               >
-                <div
-                  style={{
-                    marginBottom: "10px",
-                  }}
-                >
+                <div style={{ marginBottom: "10px" }}>
                   <div
                     style={{
                       fontSize: "12px",
@@ -346,7 +597,7 @@ export default function MapView() {
                       fontWeight: 600,
                     }}
                   >
-                    {place.business}
+                    {branch.businessName}
                   </div>
 
                   <div
@@ -356,7 +607,7 @@ export default function MapView() {
                       fontWeight: 700,
                     }}
                   >
-                    {place.branch}
+                    {branch.branchName}
                   </div>
                 </div>
 
@@ -366,10 +617,10 @@ export default function MapView() {
                     color: "#806E68",
                   }}
                 >
-                  📍 {place.address}
+                  📍 {branch.address}
                 </div>
 
-                {place.distance !== null && (
+                {branch.distance !== null && (
                   <div
                     style={{
                       marginTop: "6px",
@@ -379,83 +630,94 @@ export default function MapView() {
                   >
                     От вас:{" "}
                     <strong>
-                      {formatDistance(
-                        place.distance,
-                      )}
+                      {formatDistance(branch.distance)}
                     </strong>
                   </div>
                 )}
 
+                {/* Предложения точки: их может быть несколько,
+                    поэтому список скроллится внутри попапа. */}
                 <div
                   style={{
                     marginTop: "12px",
-                    padding: "10px",
-                    borderRadius: "12px",
-                    background: "#FAF1E8",
+                    maxHeight: "210px",
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
                   }}
                 >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                    }}
-                  >
-                    {place.title}
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: "5px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "7px",
-                    }}
-                  >
-                    <strong
+                  {branch.offers.map((offer) => (
+                    <div
+                      key={offer.id}
                       style={{
-                        fontSize: "16px",
+                        padding: "10px",
+                        borderRadius: "12px",
+                        background: "#FAF1E8",
                       }}
                     >
-                      {place.price.toLocaleString()} ₸
-                    </strong>
+                      <div style={{ fontWeight: 700 }}>
+                        {offer.product_name ?? offer.title}
+                      </div>
 
-                    <span
-                      style={{
-                        color: "#AFA09A",
-                        textDecoration: "line-through",
-                        fontSize: "12px",
-                      }}
-                    >
-                      {place.oldPrice.toLocaleString()} ₸
-                    </span>
-                  </div>
+                      <div
+                        style={{
+                          marginTop: "5px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "7px",
+                        }}
+                      >
+                        <strong style={{ fontSize: "16px" }}>
+                          {formatPrice(offer.sale_price)}
+                        </strong>
 
-                  <div
-                    style={{
-                      marginTop: "7px",
-                      fontSize: "12px",
-                      color: "#806E68",
-                    }}
-                  >
-                    🕒 {place.pickup}
-                  </div>
+                        <span
+                          style={{
+                            color: "#AFA09A",
+                            textDecoration: "line-through",
+                            fontSize: "12px",
+                          }}
+                        >
+                          {formatPrice(offer.original_price)}
+                        </span>
+                      </div>
 
-                  <div
-                    style={{
-                      marginTop: "3px",
-                      fontSize: "12px",
-                      color: "#B85F68",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Осталось: {place.remaining} шт.
-                  </div>
+                      <div
+                        style={{
+                          marginTop: "7px",
+                          fontSize: "12px",
+                          color: "#806E68",
+                        }}
+                      >
+                        🕒{" "}
+                        {formatPickupWindow(
+                          offer.pickup_start,
+                          offer.pickup_end,
+                        )}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "3px",
+                          fontSize: "12px",
+                          color: "#B85F68",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Осталось: {offer.quantity_remaining} шт.
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <a
                   href={build2GisRoute(
-                    place.longitude,
-                    place.latitude,
+                    branch.longitude,
+                    branch.latitude,
                   )}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
                     display: "block",
                     marginTop: "12px",
@@ -476,7 +738,7 @@ export default function MapView() {
           </CircleMarker>
         ))}
 
-        {/* User */}
+        {/* Пользователь */}
         {userLocation && (
           <CircleMarker
             center={[
@@ -497,8 +759,17 @@ export default function MapView() {
           </CircleMarker>
         )}
 
-        <RecenterMap
-          location={userLocation}
+        <FitToBranches
+          branches={branches}
+          enabled={!userLocation && focusRequest === null}
+        />
+
+        <RecenterMap location={userLocation} />
+
+        <FocusBranch
+          request={focusRequest}
+          branches={branches}
+          markersRef={markersRef}
         />
       </MapContainer>
     </div>

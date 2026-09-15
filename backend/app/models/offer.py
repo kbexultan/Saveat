@@ -102,8 +102,15 @@ class Offer(Base):
         "Order",
         back_populates="offer",
     )
-    
+
     order_items = relationship(
-    "OrderItem",
-    back_populates="offer",
-)
+        "OrderItem",
+        back_populates="offer",
+    )
+
+    favorites = relationship(
+        "Favorite",
+        back_populates="offer",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
