@@ -21,6 +21,7 @@ import type {
   ProductUpdatePayload,
   PublicOffer,
   RegisterPayload,
+  SubscribedBusiness,
   TokenResponse,
   User,
 } from "@/types/api";
@@ -520,6 +521,35 @@ export const api = {
         auth: true,
         body: { endpoint: expoPushToken },
       });
+    },
+  },
+  businessSubscriptions: {
+    list(signal?: AbortSignal) {
+      return request<SubscribedBusiness[]>(
+        "/business-subscriptions",
+        { auth: true, signal },
+      );
+    },
+
+    ids(signal?: AbortSignal) {
+      return request<string[]>("/business-subscriptions/ids", {
+        auth: true,
+        signal,
+      });
+    },
+
+    subscribe(businessId: string) {
+      return request<void>(
+        `/business-subscriptions/${businessId}`,
+        { method: "PUT", auth: true },
+      );
+    },
+
+    unsubscribe(businessId: string) {
+      return request<void>(
+        `/business-subscriptions/${businessId}`,
+        { method: "DELETE", auth: true },
+      );
     },
   },
 };

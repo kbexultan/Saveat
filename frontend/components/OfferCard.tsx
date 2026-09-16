@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { SubscribeButton } from "@/components/SubscribeButton";
 
 import {
   calculateDiscount,
@@ -155,9 +156,16 @@ export default function OfferCard({ offer }: { offer: Offer }) {
 
       {/* Контент */}
       <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <p className="text-caption font-semibold text-subtle">
-          {offer.business_name}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 truncate text-caption font-semibold text-subtle">
+            {offer.business_name}
+          </p>
+
+          <SubscribeButton
+            businessId={offer.business_id}
+            businessName={offer.business_name}
+          />
+        </div>
 
         <h4 className="mt-1 text-card font-bold tracking-[-0.03em] text-ink sm:text-xl">
           {offer.product_name ?? offer.title}

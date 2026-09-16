@@ -18,6 +18,8 @@ import {
 } from "@/components/FavoritesProvider";
 import Header from "@/components/Header";
 import OfferCard from "@/components/OfferCard";
+import { SubscribeButton } from "@/components/SubscribeButton";
+import { useSubscriptions } from "@/components/SubscriptionsProvider";
 
 const PENDING_FAVORITE_NOTICE_KEY = "pending_favorite_notice";
 
@@ -37,6 +39,10 @@ export default function FavoritesPage() {
     error,
     refreshFavorites,
   } = useFavorites();
+
+  const {
+    businesses: subscribedBusinesses,
+  } = useSubscriptions();
 
   useEffect(() => {
     if (
@@ -116,6 +122,56 @@ export default function FavoritesPage() {
             Сохраняйте интересные предложения, чтобы быстро вернуться к ним позже.
           </p>
         </div>
+
+        {/*
+          Подписки на заведения. Избранное живёт недолго — предложение
+          разбирают, и карточка исчезает. Подписка остаётся и приносит
+          уведомление о каждой новой скидке любимого места.
+        */}
+        {subscribedBusinesses.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-section font-bold tracking-[-0.035em] sm:text-2xl">
+              Любимые заведения
+            </h2>
+
+            <p className="mt-1 text-caption text-subtle sm:text-sm">
+              Сообщим, когда здесь появятся новые скидки
+            </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {subscribedBusinesses.map((business) => (
+                <div
+                  key={business.id}
+                  className="flex flex-col justify-between gap-4 rounded-card-lg bg-surface p-5 shadow-soft"
+                >
+                  <div className="min-w-0">
+                    <h3 className="truncate text-body font-bold">
+                      {business.name}
+                    </h3>
+
+                    {business.description ? (
+                      <p className="mt-1 line-clamp-2 text-caption leading-5 text-muted">
+                        {business.description}
+                      </p>
+                    ) : null}
+
+                    <p className="mt-2 text-caption font-semibold text-primary-strong">
+                      {business.active_offers > 0
+                        ? `Сейчас доступно: ${business.active_offers}`
+                        : "Сейчас предложений нет"}
+                    </p>
+                  </div>
+
+                  <SubscribeButton
+                    businessId={business.id}
+                    businessName={business.name}
+                    size="full"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {pendingFavoriteNotice ? (
           <div

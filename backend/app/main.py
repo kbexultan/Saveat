@@ -5,6 +5,9 @@ from app.database import test_database_connection
 
 from app.routers.businesses import router as businesses_router
 from app.routers.branches import router as branches_router
+from app.routers.business_subscriptions import (
+    router as business_subscriptions_router,
+)
 from app.routers.categories import router as categories_router
 from app.routers.notifications import router as notifications_router
 from app.routers.push import router as push_router
@@ -49,6 +52,7 @@ app.include_router(business_auth_router)
 app.include_router(business_orders_router)
 app.include_router(favorites_router)
 app.include_router(categories_router)
+app.include_router(business_subscriptions_router)
 app.include_router(notifications_router)
 app.include_router(push_router)
 

@@ -36,6 +36,10 @@ import {
   NotificationsProvider,
 } from "@/components/NotificationsProvider";
 
+import {
+  SubscriptionsProvider,
+} from "@/components/SubscriptionsProvider";
+
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
@@ -96,13 +100,15 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             <NotificationsProvider>
-              <FavoritesProvider>
-                <BusinessProvider>
-                  <CartProvider>
-                    {children}
-                  </CartProvider>
-                </BusinessProvider>
-              </FavoritesProvider>
+              <SubscriptionsProvider>
+                <FavoritesProvider>
+                  <BusinessProvider>
+                    <CartProvider>
+                      {children}
+                    </CartProvider>
+                  </BusinessProvider>
+                </FavoritesProvider>
+              </SubscriptionsProvider>
             </NotificationsProvider>
           </ToastProvider>
         </AuthProvider>

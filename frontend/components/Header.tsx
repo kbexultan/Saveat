@@ -52,6 +52,39 @@ export default function Header({
               {/* Колокольчик сам прячется у неавторизованных. */}
               <NotificationBell />
 
+              {/* Поиск по всем заведениям. Виден на любом экране:
+                  это единственный вход в каталог, подписки живут
+                  отдельно на /subscriptions. */}
+              <Link
+                href="/businesses"
+                aria-label="Поиск заведений"
+                title="Поиск заведений"
+                className={iconButtonClass}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="11"
+                    cy="11"
+                    r="6.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+
+                  <path
+                    d="m16 16 4 4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </Link>
+
               {/* Избранное: на мобильном доступно из нижней навигации. */}
               <Link
                 href="/favorites"
@@ -76,12 +109,14 @@ export default function Header({
                 </svg>
               </Link>
 
-              {/* Корзина */}
+              {/* Корзина. На телефоне её место занял поиск: корзина
+                  со счётчиком и так есть в нижней навигации, а пять
+                  иконок в шапку не помещаются. */}
               <Link
                 href="/cart"
                 aria-label="Корзина"
                 title="Корзина"
-                className={`relative ${iconButtonClass}`}
+                className="relative hidden h-11 w-11 items-center justify-center rounded-chip bg-surface-blush text-muted shadow-soft transition hover:bg-primary-tint hover:text-primary-strong md:flex"
               >
                 <svg
                   width="22"

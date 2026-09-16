@@ -2,6 +2,7 @@ from app.models.base import Base
 from app.models.branch import Branch
 from app.models.business import Business
 from app.models.business_member import BusinessMember
+from app.models.business_subscription import BusinessSubscription
 from app.models.favorite import Favorite
 from app.models.notification import Notification
 from app.models.offer import Offer
@@ -14,6 +15,7 @@ __all__ = [
     "Base",
     "Business",
     "BusinessMember",
+    "BusinessSubscription",
     "Favorite",
     "Notification",
     "Branch",

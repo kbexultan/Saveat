@@ -3,28 +3,15 @@
 import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
 import { useFavorites } from "@/components/FavoritesProvider";
+import { useSubscriptions } from "@/components/SubscriptionsProvider";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-/** «1 предложение», «2 предложения», «5 предложений». */
-function formatOfferCount(count: number) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-
-  if (mod10 === 1 && mod100 !== 11) {
-    return `${count} предложение`;
-  }
-
-  if (
-    mod10 >= 2 &&
-    mod10 <= 4 &&
-    (mod100 < 12 || mod100 > 14)
-  ) {
-    return `${count} предложения`;
-  }
-
-  return `${count} предложений`;
-}
+import {
+  formatBusinessCount,
+  formatOfferCount,
+} from "@/lib/plural";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -43,6 +30,18 @@ export default function ProfilePage() {
     favoriteOffers,
     loading: favoritesLoading,
   } = useFavorites();
+
+  /*
+    Подписки тоже уже загружены провайдером из layout.
+
+    Избранное и подписки решают разные задачи: избранное живёт до
+    момента, пока предложение не разберут, а подписка держится на
+    заведении и приносит уведомление о каждой новой скидке.
+  */
+  const {
+    businesses: subscribedBusinesses,
+    loading: subscriptionsLoading,
+  } = useSubscriptions();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -247,6 +246,58 @@ export default function ProfilePage() {
               >
                 Открыть избранное
               </button>
+            </div>
+
+            <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#C5686D]">
+                    SAVEAT
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-bold">
+                    Подписки
+                  </h2>
+                </div>
+
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F7DFDC] text-xl">
+                  ⭐
+
+                  {!subscriptionsLoading &&
+                  subscribedBusinesses.length > 0 ? (
+                    <span className="absolute -right-1.5 -top-1.5 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                      {subscribedBusinesses.length > 99
+                        ? "99+"
+                        : subscribedBusinesses.length}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm leading-6 text-[#8B746C]">
+                {subscriptionsLoading
+                  ? "Загружаем подписки…"
+                  : subscribedBusinesses.length === 0
+                    ? "Вы пока ни на кого не подписаны. Найдите любимое место — сообщим о каждой новой скидке."
+                    : `${formatBusinessCount(subscribedBusinesses.length)} в подписках.`}
+              </p>
+
+              {/*
+                Пусто — ведём в поиск, иначе кнопка «Мои подписки»
+                открывала бы заведомо пустую страницу.
+              */}
+              <Link
+                href={
+                  subscribedBusinesses.length === 0
+                    ? "/businesses"
+                    : "/subscriptions"
+                }
+                className="mt-5 flex w-full items-center justify-center rounded-2xl bg-primary py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
+              >
+                {subscribedBusinesses.length === 0
+                  ? "Найти заведения"
+                  : "Мои подписки"}
+              </Link>
             </div>
 
             <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFAF5] p-6 shadow-[0_15px_45px_rgba(91,60,44,0.07)]">

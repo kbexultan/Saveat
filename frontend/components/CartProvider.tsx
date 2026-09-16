@@ -5,9 +5,11 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
+import { useAuth } from "@/components/AuthProvider";
 import type { Offer } from "@/components/OfferCard";
 
 export type CartItem = {
@@ -48,6 +50,59 @@ const CartContext =
 
 const STORAGE_KEY = "saveat_cart";
 
+type StoredCart = {
+  ownerId: string | null;
+  items: CartItem[];
+};
+
+/**
+ * Читает корзину, принадлежащую текущему пользователю.
+ *
+ * Раньше корзина лежала в localStorage без владельца, поэтому на общем
+ * компьютере её видел следующий вошедший: человек логинился и находил
+ * в корзине чужие товары.
+ *
+ * Анонимная корзина (ownerId === null) достаётся тому, кто вошёл, —
+ * это обычный сценарий «набрал товары, потом залогинился при оформлении».
+ */
+function readStoredCart(
+  userId: string | null,
+): CartItem[] {
+  try {
+    const saved =
+      localStorage.getItem(STORAGE_KEY);
+
+    if (!saved) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(saved);
+
+    // Старый формат — просто массив позиций, без владельца.
+    if (Array.isArray(parsed)) {
+      return parsed as CartItem[];
+    }
+
+    const stored = parsed as StoredCart;
+
+    if (!Array.isArray(stored?.items)) {
+      return [];
+    }
+
+    if (
+      stored.ownerId === null ||
+      stored.ownerId === userId
+    ) {
+      return stored.items;
+    }
+
+    return [];
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return [];
+  }
+}
+
 export function CartProvider({
   children,
 }: {
@@ -60,40 +115,54 @@ export function CartProvider({
   const [loaded, setLoaded] =
     useState(false);
 
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
+
+  // undefined — корзину ещё ни разу не читали для этой сессии.
+  const ownerId = useRef<
+    string | null | undefined
+  >(undefined);
+
   useEffect(() => {
-    const saved =
-      localStorage.getItem(
-        STORAGE_KEY,
-      );
-
-    if (saved) {
-      try {
-        const parsed =
-          JSON.parse(saved);
-
-        if (Array.isArray(parsed)) {
-          setItems(parsed);
-        }
-      } catch {
-        localStorage.removeItem(
-          STORAGE_KEY,
-        );
-      }
+    /*
+      Пока AuthProvider не ответил, userId ещё null. Сравнивать
+      владельца в этот момент нельзя — иначе корзина залогиненного
+      человека стёрлась бы при каждой перезагрузке страницы.
+    */
+    if (authLoading) {
+      return;
     }
 
-    setLoaded(true);
-  }, []);
+    if (ownerId.current === userId) {
+      return;
+    }
+
+    ownerId.current = userId;
+
+    // Через таймер, чтобы не дёргать setState синхронно в теле эффекта.
+    const timer = setTimeout(() => {
+      setItems(readStoredCart(userId));
+      setLoaded(true);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [authLoading, userId]);
 
   useEffect(() => {
     if (!loaded) {
       return;
     }
 
+    // userId в зависимостях, чтобы анонимная корзина после входа
+    // перештамповалась на владельца, а не осталась ничьей.
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify(items),
+      JSON.stringify({
+        ownerId: userId,
+        items,
+      }),
     );
-  }, [items, loaded]);
+  }, [items, loaded, userId]);
 
   function addItem(
     offer: Offer,

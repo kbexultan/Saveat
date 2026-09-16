@@ -4,11 +4,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
 import { MAX_QUANTITY_PER_OFFER } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
 import { toNumber } from "@/lib/format";
 import { readJson, removeKey, STORAGE_KEYS, writeJson } from "@/lib/storage";
 import type { PublicOffer } from "@/types/api";
@@ -53,34 +55,74 @@ function maxQuantityFor(offer: PublicOffer): number {
   return Math.min(offer.quantity_remaining, MAX_QUANTITY_PER_OFFER);
 }
 
+type StoredCart = {
+  ownerId: string | null;
+  items: CartItem[];
+};
+
+function isUsableItem(item: CartItem): boolean {
+  return Boolean(
+    item &&
+      typeof item.quantity === "number" &&
+      item.quantity > 0 &&
+      item.offer &&
+      typeof item.offer.id === "string",
+  );
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
+
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Корзина — не секрет, поэтому обычное хранилище устройства.
+  // undefined — корзину ещё ни разу не читали в этой сессии.
+  const ownerRef = useRef<string | null | undefined>(undefined);
+
+  /*
+    Корзина — не секрет, поэтому обычное хранилище устройства. Но она
+    привязана к владельцу: на общем телефоне следующий вошедший не
+    должен находить в корзине чужие товары.
+
+    Анонимная корзина (ownerId === null) достаётся тому, кто вошёл —
+    это обычный сценарий «набрал товары, потом залогинился».
+  */
   useEffect(() => {
+    // Пока авторизация не разрешилась, userId ещё null: сравнивать
+    // владельца рано, иначе сотрём корзину залогиненного человека.
+    if (authLoading) {
+      return;
+    }
+
+    if (ownerRef.current === userId) {
+      return;
+    }
+
+    ownerRef.current = userId;
+
     let active = true;
 
     async function restore() {
-      const saved = await readJson<CartItem[]>(STORAGE_KEYS.cart);
+      const saved = await readJson<StoredCart | CartItem[]>(
+        STORAGE_KEYS.cart,
+      );
 
       if (!active) {
         return;
       }
 
-      if (Array.isArray(saved)) {
-        setItems(
-          saved.filter(
-            (item) =>
-              item &&
-              typeof item.quantity === "number" &&
-              item.quantity > 0 &&
-              item.offer &&
-              typeof item.offer.id === "string",
-          ),
-        );
-      }
+      // Старый формат — просто массив позиций, без владельца.
+      const stored: StoredCart = Array.isArray(saved)
+        ? { ownerId: null, items: saved }
+        : saved && Array.isArray(saved.items)
+          ? saved
+          : { ownerId: null, items: [] };
 
+      const mine =
+        stored.ownerId === null || stored.ownerId === userId;
+
+      setItems(mine ? stored.items.filter(isUsableItem) : []);
       setLoading(false);
     }
 
@@ -89,7 +131,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [authLoading, userId]);
 
   useEffect(() => {
     if (loading) {
@@ -101,8 +143,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    void writeJson(STORAGE_KEYS.cart, items);
-  }, [items, loading]);
+    // userId в зависимостях, чтобы анонимная корзина после входа
+    // перештамповалась на владельца.
+    void writeJson(STORAGE_KEYS.cart, {
+      ownerId: userId,
+      items,
+    });
+  }, [items, loading, userId]);
 
   const addItem = useCallback(
     (offer: PublicOffer, quantity: number): CartActionResult => {

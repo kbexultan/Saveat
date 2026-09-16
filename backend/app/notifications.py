@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.business_member import BusinessMember
+from app.models.business_subscription import BusinessSubscription
 from app.models.notification import Notification
 
 
@@ -22,6 +23,7 @@ from app.models.notification import Notification
 ORDER_CREATED = "order_created"
 ORDER_PICKED_UP = "order_picked_up"
 ORDER_CANCELLED = "order_cancelled"
+NEW_OFFER = "new_offer"
 
 
 def create_notification(
@@ -96,6 +98,50 @@ def notify_business_members(
             title=title,
             body=body,
             order_id=order_id,
+        )
+        for user_id in user_ids
+    ]
+
+
+def notify_business_subscribers(
+    db: Session,
+    *,
+    business_id: uuid.UUID,
+    type: str,
+    title: str,
+    body: str,
+) -> list[Notification]:
+    """
+    Уведомляет всех, кто подписан на заведение.
+
+    Сотрудников самого заведения исключаем: человек, который только что
+    опубликовал предложение, не должен получать уведомление о нём же,
+    даже если он подписан на своё заведение как покупатель.
+    """
+    employee_ids = (
+        select(BusinessMember.user_id)
+        .where(BusinessMember.business_id == business_id)
+        .scalar_subquery()
+    )
+
+    user_ids = (
+        db.execute(
+            select(BusinessSubscription.user_id).where(
+                BusinessSubscription.business_id == business_id,
+                BusinessSubscription.user_id.not_in(employee_ids),
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return [
+        create_notification(
+            db,
+            user_id=user_id,
+            type=type,
+            title=title,
+            body=body,
         )
         for user_id in user_ids
     ]

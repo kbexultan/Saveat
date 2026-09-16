@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/components/AuthProvider";
 import { useBusiness } from "@/components/BusinessProvider";
+import { useNotifications } from "@/components/NotificationsProvider";
 import {
   Badge,
   ForecastCard,
@@ -115,6 +116,7 @@ function money(value: number) {
 export default function BusinessDashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
+  const { unread } = useNotifications();
   const {
     memberships,
     selectedMembership,
@@ -409,10 +411,28 @@ export default function BusinessDashboardPage() {
                 </select>
               ) : null}
 
+              {/*
+                Раньше здесь был один колокольчик «Заказы и уведомления»,
+                который вёл на список заказов, а точка на нём означала
+                заканчивающийся товар. Уведомлений он не показывал вовсе,
+                хотя именно бизнесу приходит «Новый заказ».
+              */}
               <IconButton
-                label="Заказы и уведомления"
+                label="Заказы"
                 href="/business/orders"
                 badge={dashboard.lowStock.length > 0}
+              >
+                <MobileIcon name="orders" />
+              </IconButton>
+
+              <IconButton
+                label={
+                  unread > 0
+                    ? `Уведомления, непрочитанных: ${unread}`
+                    : "Уведомления"
+                }
+                href="/notifications"
+                badge={unread > 0}
               >
                 <MobileIcon name="bell" />
               </IconButton>

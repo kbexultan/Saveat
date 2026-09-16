@@ -21,6 +21,11 @@ from app.business_access import (
 )
 from app.database import get_db
 
+from app.notifications import (
+    NEW_OFFER,
+    notify_business_subscribers,
+)
+
 from app.models.branch import Branch
 from app.models.business import Business
 from app.models.business_member import (
@@ -179,6 +184,40 @@ def create_offer(
     db.add(offer)
 
     try:
+        business = db.get(
+            Business,
+            branch.business_id,
+        )
+
+        if business is not None:
+            discount = 0
+
+            if data.original_price > 0:
+                discount = round(
+                    (
+                        1
+                        - float(
+                            data.sale_price
+                            / data.original_price
+                        )
+                    )
+                    * 100
+                )
+
+            notify_business_subscribers(
+                db,
+                business_id=business.id,
+                type=NEW_OFFER,
+                title=f"Новое в «{business.name}»",
+                body=(
+                    f"{data.title} — "
+                    f"{data.sale_price:.0f} ₸ "
+                    f"вместо {data.original_price:.0f} ₸"
+                    + (f" (-{discount}%)" if discount > 0 else "")
+                    + f". Забрать в «{branch.name}»."
+                ),
+            )
+
         db.commit()
         db.refresh(offer)
 
@@ -200,6 +239,8 @@ def create_offer(
     ],
 )
 def get_public_offers(
+    business_id: UUID | None = None,
+
     db: Session = Depends(
         get_db
     ),
@@ -244,6 +285,13 @@ def get_public_offers(
             Offer.created_at.desc()
         )
     )
+
+    if business_id is not None:
+        # Витрина одного заведения на его странице.
+        statement = statement.where(
+            Business.id
+            == business_id
+        )
 
     rows = db.execute(
         statement

@@ -143,16 +143,27 @@ def get_business_branches(
     ],
 )
 def get_branches(
+    business_id: UUID | None = None,
+
     db: Session = Depends(
         get_db
     ),
 ):
-    result = db.execute(
-        select(Branch)
-        .order_by(
-            Branch.created_at.desc()
-        )
+    statement = select(
+        Branch
+    ).order_by(
+        Branch.created_at.desc()
     )
+
+    if business_id is not None:
+        # Адреса одного заведения на его странице. Прав здесь
+        # не спрашиваем: адрес филиала и так виден на витрине.
+        statement = statement.where(
+            Branch.business_id
+            == business_id
+        )
+
+    result = db.execute(statement)
 
     return result.scalars().all()
 

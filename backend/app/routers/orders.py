@@ -18,8 +18,6 @@ from app.database import get_db
 from app.notifications import (
     ORDER_CANCELLED,
     ORDER_CREATED,
-    ORDER_PICKED_UP,
-    create_notification,
     notify_business_members,
 )
 
@@ -57,24 +55,65 @@ def generate_pickup_code() -> str:
     return f"SVT-{code}"
 
 
-def build_order_response(
-    order: Order,
+def load_items_by_order(
+    orders: list[Order],
     db: Session,
-) -> OrderDetailsResponse:
-    items = (
+) -> dict[UUID, list[OrderItem]]:
+    """
+    Позиции сразу для всех заказов, одним запросом.
+
+    Раньше список заказов собирался по одному запросу на заказ, и при
+    ~300 мс до базы десять заказов превращались в три секунды ожидания.
+    """
+    if not orders:
+        return {}
+
+    rows = (
         db.execute(
             select(OrderItem)
             .where(
-                OrderItem.order_id
-                == order.id
+                OrderItem.order_id.in_(
+                    [order.id for order in orders]
+                )
             )
-            .order_by(
-                OrderItem.id
-            )
+            .order_by(OrderItem.id)
         )
         .scalars()
         .all()
     )
+
+    grouped: dict[UUID, list[OrderItem]] = {}
+
+    for row in rows:
+        grouped.setdefault(
+            row.order_id,
+            [],
+        ).append(row)
+
+    return grouped
+
+
+def build_order_response(
+    order: Order,
+    db: Session,
+    items: list[OrderItem] | None = None,
+) -> OrderDetailsResponse:
+    # items передают, когда позиции уже загружены пачкой для списка.
+    if items is None:
+        items = list(
+            db.execute(
+                select(OrderItem)
+                .where(
+                    OrderItem.order_id
+                    == order.id
+                )
+                .order_by(
+                    OrderItem.id
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     # Заказ старого формата
     # (без snapshot заведения)
@@ -642,10 +681,16 @@ def get_orders(
         .all()
     )
 
+    items_by_order = load_items_by_order(
+        list(orders),
+        db,
+    )
+
     return [
         build_order_response(
             order,
             db,
+            items_by_order.get(order.id, []),
         )
         for order in orders
     ]
@@ -927,104 +972,13 @@ def cancel_order(
 
 
 # --------------------------------
-# ПОЛУЧЕНИЕ
+# ПОЛУЧЕНИЕ ЗАКАЗА
 # --------------------------------
 #
-# Пока временно клиентский endpoint.
-# Позже его перенесём в кабинет
-# бизнеса и будем подтверждать
-# по pickup_code.
-
-@router.post(
-    "/{order_id}/pickup",
-    response_model=(
-        OrderDetailsResponse
-    ),
-)
-def confirm_pickup(
-    order_id: UUID,
-    current_user: User = Depends(
-        get_current_user
-    ),
-    db: Session = Depends(
-        get_db
-    ),
-):
-    order = db.get(
-        Order,
-        order_id,
-    )
-
-    if order is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Order not found",
-        )
-
-    if (
-        order.user_id
-        != current_user.id
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "You do not have "
-                "access to this order"
-            ),
-        )
-
-    if (
-        order.status
-        == "picked_up"
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Order has already "
-                "been picked up"
-            ),
-        )
-
-    if order.status not in {
-        "reserved",
-        "paid",
-        "ready",
-    }:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Order cannot "
-                "be picked up"
-            ),
-        )
-
-    order.status = (
-        "picked_up"
-    )
-
-    order.picked_up_at = (
-        datetime.now(
-            timezone.utc
-        )
-    )
-
-    create_notification(
-        db,
-        user_id=order.user_id,
-        type=ORDER_PICKED_UP,
-        title="Заказ получен",
-        body=(
-            f"Заказ {order.pickup_code} "
-            f"в «{order.branch_name}» отмечен как выданный. "
-            "Приятного аппетита!"
-        ),
-        order_id=order.id,
-    )
-
-    db.commit()
-    db.refresh(order)
-
-    return build_order_response(
-        order,
-        db,
-    )
+# Подтверждает выдачу только заведение:
+# POST /business-orders/{business_id}/pickup/{pickup_code}/confirm
+#
+# Раньше здесь был клиентский POST /orders/{order_id}/pickup, которым
+# покупатель помечал СВОЙ заказ выданным. Его никто не вызывал — ни веб,
+# ни мобилка, — но он позволял закрыть заказ, ничего не забрав: у
+# заведения заказ числился выданным, а отменить его уже было нельзя.

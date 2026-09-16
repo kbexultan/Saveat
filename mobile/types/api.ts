@@ -288,3 +288,12 @@ export type AppNotification = {
   is_read: boolean;
   created_at: string;
 };
+
+export type SubscribedBusiness = {
+  id: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  active_offers: number;
+  subscribed_at: string;
+};

@@ -40,21 +40,25 @@ router = APIRouter(
 def build_business_order_response(
     order: Order,
     db: Session,
+    items: list[OrderItem] | None = None,
 ) -> OrderDetailsResponse:
-    items = (
-        db.execute(
-            select(OrderItem)
-            .where(
-                OrderItem.order_id
-                == order.id
+    # items передают, когда позиции уже загружены пачкой для списка:
+    # иначе на каждый заказ уходит отдельный запрос к базе.
+    if items is None:
+        items = list(
+            db.execute(
+                select(OrderItem)
+                .where(
+                    OrderItem.order_id
+                    == order.id
+                )
+                .order_by(
+                    OrderItem.id
+                )
             )
-            .order_by(
-                OrderItem.id
-            )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
 
     if order.branch_id is None:
         raise RuntimeError(
@@ -183,10 +187,34 @@ def get_business_orders(
         .all()
     )
 
+    items_by_order: dict[UUID, list[OrderItem]] = {}
+
+    if orders:
+        rows = (
+            db.execute(
+                select(OrderItem)
+                .where(
+                    OrderItem.order_id.in_(
+                        [order.id for order in orders]
+                    )
+                )
+                .order_by(OrderItem.id)
+            )
+            .scalars()
+            .all()
+        )
+
+        for row in rows:
+            items_by_order.setdefault(
+                row.order_id,
+                [],
+            ).append(row)
+
     return [
         build_business_order_response(
             order,
             db,
+            items_by_order.get(order.id, []),
         )
         for order in orders
     ]
