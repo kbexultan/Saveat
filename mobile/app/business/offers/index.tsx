@@ -56,7 +56,7 @@ function OffersContent({ businessId }: { businessId: string }) {
   const offers = useMemo(() => data?.offers ?? [], [data]);
 
   function handleToggle(offer: Offer) {
-    if (!data || togglingId) {
+    if (!data || togglingId || offer.status === "expired") {
       return;
     }
 
@@ -209,15 +209,25 @@ function OffersContent({ businessId }: { businessId: string }) {
               </Pressable>
 
               <View className="flex-row gap-3">
+                {/*
+                  У просроченного предложения включать нечего: пока
+                  окно выдачи не продлили на экране изменения, backend
+                  такой запрос отклонит.
+                */}
                 <Button
                   label={
-                    item.status === "active" ? "Отключить" : "Включить"
+                    item.status === "expired"
+                      ? "Срок вышел"
+                      : item.status === "active"
+                        ? "Отключить"
+                        : "Включить"
                   }
                   variant="secondary"
                   className="flex-1"
                   loading={togglingId === item.id}
                   disabled={
-                    togglingId !== null && togglingId !== item.id
+                    item.status === "expired" ||
+                    (togglingId !== null && togglingId !== item.id)
                   }
                   onPress={() => handleToggle(item)}
                 />

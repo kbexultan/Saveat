@@ -243,7 +243,13 @@ def get_business(
         business_id,
     )
 
-    if business is None:
+    # Отключённое заведение прячем так же, как /businesses/public и
+    # витрина: иначе у него оставалась рабочая страница с кнопкой
+    # «Подписаться», а подписка на него возвращала 404 — тупик.
+    if (
+        business is None
+        or business.status != "active"
+    ):
         raise HTTPException(
             status_code=404,
             detail=(

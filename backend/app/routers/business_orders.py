@@ -37,6 +37,24 @@ router = APIRouter(
 )
 
 
+def has_full_snapshot(order: Order) -> bool:
+    """
+    Можно ли показать заказ.
+
+    Заказ старого формата (без snapshot заведения) отдать нечем.
+    Такие строки пропускаем в списке и объясняем в 409 поштучно,
+    иначе одна битая строка роняла бы весь кабинет в 500.
+    """
+    return not (
+        order.branch_id is None
+        or order.business_name is None
+        or order.branch_name is None
+        or order.address is None
+        or order.pickup_start is None
+        or order.pickup_end is None
+    )
+
+
 def build_business_order_response(
     order: Order,
     db: Session,
@@ -60,34 +78,14 @@ def build_business_order_response(
             .all()
         )
 
-    if order.branch_id is None:
-        raise RuntimeError(
-            "Order has no branch_id"
-        )
-
-    if order.business_name is None:
-        raise RuntimeError(
-            "Order has no business_name"
-        )
-
-    if order.branch_name is None:
-        raise RuntimeError(
-            "Order has no branch_name"
-        )
-
-    if order.address is None:
-        raise RuntimeError(
-            "Order has no address"
-        )
-
-    if order.pickup_start is None:
-        raise RuntimeError(
-            "Order has no pickup_start"
-        )
-
-    if order.pickup_end is None:
-        raise RuntimeError(
-            "Order has no pickup_end"
+    if not has_full_snapshot(order):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Order is stored in an "
+                "old format and cannot "
+                "be shown"
+            ),
         )
 
     return OrderDetailsResponse(
@@ -216,7 +214,10 @@ def get_business_orders(
             db,
             items_by_order.get(order.id, []),
         )
+        # Заказы старого формата пропускаем: кабинет должен открыться
+        # со всеми остальными, а не упасть целиком из-за одной строки.
         for order in orders
+        if has_full_snapshot(order)
     ]
 
 

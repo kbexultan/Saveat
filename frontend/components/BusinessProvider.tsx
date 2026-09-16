@@ -205,14 +205,20 @@ export function BusinessProvider({
       return;
     }
 
-    if (!user) {
-      clearBusinessState();
-      setLoading(false);
-      return;
-    }
+    // Через таймер, чтобы не вызывать setState синхронно в эффекте —
+    // как в остальных провайдерах. Ветка «пользователя нет» иначе
+    // отрабатывает прямо в теле и вызывает каскадный ререндер.
+    const timer = setTimeout(() => {
+      if (!user) {
+        clearBusinessState();
+        setLoading(false);
+        return;
+      }
 
-    void refreshBusiness();
+      void refreshBusiness();
+    }, 0);
 
+    return () => clearTimeout(timer);
   }, [
     authLoading,
     user?.id,

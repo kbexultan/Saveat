@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -93,6 +92,24 @@ def load_items_by_order(
     return grouped
 
 
+def has_full_snapshot(order: Order) -> bool:
+    """
+    Можно ли показать заказ.
+
+    Заказ старого формата (без snapshot заведения) отдать нечем.
+    Такие строки пропускаем в списке и объясняем в 409 поштучно,
+    иначе одна битая строка роняла бы весь список в 500.
+    """
+    return not (
+        order.branch_id is None
+        or order.business_name is None
+        or order.branch_name is None
+        or order.address is None
+        or order.pickup_start is None
+        or order.pickup_end is None
+    )
+
+
 def build_order_response(
     order: Order,
     db: Session,
@@ -121,14 +138,7 @@ def build_order_response(
     # был RuntimeError, из-за чего
     # одна битая строка роняла
     # весь список заказов в 500.
-    if (
-        order.branch_id is None
-        or order.business_name is None
-        or order.branch_name is None
-        or order.address is None
-        or order.pickup_start is None
-        or order.pickup_end is None
-    ):
+    if not has_full_snapshot(order):
         raise HTTPException(
             status_code=409,
             detail=(
@@ -692,7 +702,10 @@ def get_orders(
             db,
             items_by_order.get(order.id, []),
         )
+        # branch_id отсеян запросом, но snapshot мог остаться неполным
+        # и по другим полям — такую строку тоже пропускаем.
         for order in orders
+        if has_full_snapshot(order)
     ]
 
 

@@ -318,7 +318,7 @@ export const api = {
     },
 
     getOne(offerId: string, signal?: AbortSignal) {
-      return request<Offer>(`/offers/${offerId}`, { signal });
+      return request<Offer>(`/offers/${offerId}`, { auth: true, signal });
     },
 
     create(payload: OfferCreatePayload) {
@@ -415,7 +415,10 @@ export const api = {
     },
 
     getOne(productId: string, signal?: AbortSignal) {
-      return request<Product>(`/products/${productId}`, { signal });
+      return request<Product>(`/products/${productId}`, {
+        auth: true,
+        signal,
+      });
     },
 
     create(payload: ProductCreatePayload) {

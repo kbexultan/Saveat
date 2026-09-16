@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import (
@@ -47,6 +48,67 @@ router = APIRouter(
     prefix="/offers",
     tags=["Offers"],
 )
+
+
+# --------------------------------
+# СРОК ПРЕДЛОЖЕНИЯ
+# --------------------------------
+#
+# Предложение с закрытым окном выдачи покупателю уже не показать:
+# /offers/public отсекает его по pickup_end. В кабинете оно при этом
+# оставалось «активным» — заведение видело активные позиции, ни одну
+# из которых нельзя купить.
+#
+# Статус в базе — это намерение заведения (продаём / сняли с витрины),
+# а срок считаем на чтении. Фоновой задачи в проекте нет, и заводить
+# её ради этого не стоит: между запусками база всё равно врала бы, а
+# витрина и так фильтрует по pickup_end — считаем тем же правилом.
+
+EXPIRED_STATUS = "expired"
+
+
+def effective_offer_status(
+    offer: Offer,
+    now: datetime,
+) -> str:
+    # sold_out не перекрываем: «всё разобрали» и «не успели продать» —
+    # разный итог, и заведению важно их различать.
+    if offer.status == "sold_out":
+        return offer.status
+
+    if offer.pickup_end <= now:
+        return EXPIRED_STATUS
+
+    return offer.status
+
+
+def build_offer_response(
+    offer: Offer,
+    now: datetime,
+) -> OfferResponse:
+    return (
+        OfferResponse
+        .model_validate(offer)
+        .model_copy(
+            update={
+                "status": (
+                    effective_offer_status(
+                        offer,
+                        now,
+                    )
+                ),
+            },
+        )
+    )
+
+
+def database_now(db: Session) -> datetime:
+    return (
+        db.execute(
+            select(func.now())
+        )
+        .scalar_one()
+    )
 
 
 # --------------------------------
@@ -134,6 +196,23 @@ def create_offer(
                     "businesses"
                 ),
             )
+
+    # Окно выдачи уже закрылось — такое предложение на витрину не
+    # попадёт (/offers/public фильтрует по pickup_end), а уведомление
+    # подписчикам уйдёт. Опечатку в дате ловим здесь, а не рассылкой
+    # про несуществующую скидку.
+    db_now = database_now(db)
+
+    if data.pickup_end <= db_now:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=(
+                "pickup_end is already "
+                "in the past"
+            ),
+        )
 
     offer = Offer(
         branch_id=(
@@ -225,7 +304,10 @@ def create_offer(
         db.rollback()
         raise
 
-    return offer
+    return build_offer_response(
+        offer,
+        db_now,
+    )
 
 
 # --------------------------------
@@ -431,32 +513,27 @@ def get_business_offers(
         )
     )
 
-    return result.scalars().all()
+    # Время берём один раз на весь список, иначе соседние строки
+    # могут разойтись по разные стороны одной и той же секунды.
+    db_now = database_now(db)
 
-
-# --------------------------------
-# GET ALL
-# --------------------------------
-
-@router.get(
-    "",
-    response_model=list[
-        OfferResponse
-    ],
-)
-def get_offers(
-    db: Session = Depends(
-        get_db
-    ),
-):
-    result = db.execute(
-        select(Offer)
-        .order_by(
-            Offer.created_at.desc()
+    return [
+        build_offer_response(
+            offer,
+            db_now,
         )
-    )
+        for offer in result.scalars().all()
+    ]
 
-    return result.scalars().all()
+
+# --------------------------------
+# GET ALL — удалён
+# --------------------------------
+#
+# Здесь был GET /offers без авторизации, отдававший все предложения
+# всех заведений: снятые с продажи, распроданные и с quantity_total,
+# то есть чужую внутреннюю кухню кому угодно. Его никто не вызывал —
+# витрине хватает /offers/public, кабинету /offers/business/{id}.
 
 
 # --------------------------------
@@ -472,6 +549,11 @@ def get_offers(
 )
 def get_offer(
     offer_id: UUID,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
     db: Session = Depends(
         get_db
     ),
@@ -489,7 +571,35 @@ def get_offer(
             detail="Offer not found",
         )
 
-    return offer
+    branch = db.get(
+        Branch,
+        offer.branch_id,
+    )
+
+    if branch is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail="Offer not found",
+        )
+
+    # OfferResponse — внутренний вид: quantity_total, статус паузы или
+    # распроданности, точное время создания. Покупателю с витрины
+    # хватает /offers/public; этот эндпоинт дёргает только кабинет
+    # заведения, поэтому доступ проверяем так же, как в остальном
+    # кабинете — по членству в бизнесе, а не по факту авторизации.
+    get_business_membership_or_403(
+        db=db,
+        user_id=current_user.id,
+        business_id=branch.business_id,
+        allowed_roles=BUSINESS_ROLES,
+    )
+
+    return build_offer_response(
+        offer,
+        database_now(db),
+    )
 
 # --------------------------------
 # ОБНОВЛЕНИЕ OFFER
@@ -567,9 +677,15 @@ def update_offer(
             exclude_unset=True,
         )
 
+        db_now = database_now(db)
+
         if not changes:
             db.rollback()
-            return offer
+
+            return build_offer_response(
+                offer,
+                db_now,
+            )
 
         new_status = changes.pop(
             "status",
@@ -670,10 +786,24 @@ def update_offer(
         # СТАТУС
         # --------------------------------
 
+        # Сравниваем с новым окном выдачи, а не с сохранённым: продлить
+        # срок и включить предложение можно одним запросом.
+        is_expired = pickup_end <= db_now
+
         if new_status == "paused":
             offer.status = "paused"
 
         elif new_status == "active":
+            if is_expired:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Extend pickup_end "
+                        "before activating "
+                        "this offer"
+                    ),
+                )
+
             if quantity_remaining <= 0:
                 raise HTTPException(
                     status_code=409,
@@ -701,13 +831,20 @@ def update_offer(
                 quantity_remaining > 0
                 and offer.status
                 == "sold_out"
+                and not is_expired
             ):
+                # Просроченному предложению «распродано» оставляем:
+                # это его итог, а вернуть его в продажу изменением
+                # количества всё равно нельзя.
                 offer.status = "active"
 
         db.commit()
         db.refresh(offer)
 
-        return offer
+        return build_offer_response(
+            offer,
+            db_now,
+        )
 
     except HTTPException:
         db.rollback()

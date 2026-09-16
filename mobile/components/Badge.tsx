@@ -63,6 +63,8 @@ function offerTone(status: string): Tone {
     return "danger";
   }
 
+  // expired и paused — серым: предложение уже не в продаже,
+  // и подсвечивать его цветом незачем.
   return "neutral";
 }
 

@@ -72,7 +72,14 @@ export function AuthProvider({
   }, []);
 
   useEffect(() => {
-    void refreshUser();
+    // Через таймер, чтобы не вызывать setState синхронно в эффекте:
+    // ветка «токена нет» в refreshUser отрабатывает до первого await
+    // и без этого дёргает setState прямо в теле эффекта.
+    const timer = setTimeout(() => {
+      void refreshUser();
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [refreshUser]);
 
   function logout() {

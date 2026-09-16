@@ -160,7 +160,17 @@ def _send_to_user(db: Session, message: dict) -> None:
             if subscription.id in stale_ids:
                 db.delete(subscription)
 
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            # Уборка мусора не должна оставлять сессию в сломанной
+            # транзакции: следующему уведомлению в этой же пачке
+            # она ещё нужна.
+            db.rollback()
+
+            logger.exception(
+                "Failed to remove stale push subscriptions"
+            )
 
 
 def _send_web_push(
@@ -207,6 +217,19 @@ def _send_web_push(
             return False
 
         logger.warning("Web push failed: %s", error)
+        return None
+
+    except Exception:
+        # pywebpush ходит в сеть через requests и поднимает не только
+        # WebPushException: обрыв соединения, таймаут или битый ключ
+        # прилетают своими типами. Пропустив их наверх, мы обрывали
+        # рассылку этому же человеку — до Expo-токена (телефона)
+        # очередь уже не доходила.
+        logger.exception(
+            "Web push failed for subscription %s",
+            subscription.id,
+        )
+
         return None
 
 

@@ -100,6 +100,7 @@ const OFFER_STATUS_LABELS: Record<string, string> = {
   active: "Активно",
   paused: "Отключено",
   sold_out: "Распродано",
+  expired: "Срок вышел",
 };
 
 export function offerStatusLabel(status: OfferStatus | string): string {

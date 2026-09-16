@@ -44,6 +44,7 @@ const SubscriptionsContext = createContext<
 >(undefined);
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
+const EMPTY_BUSINESSES: SubscribedBusiness[] = [];
 
 function authHeaders() {
   const token =
@@ -82,6 +83,14 @@ export function SubscriptionsProvider({
     undefined,
   );
 
+  /*
+    Номер последнего запроса. Два запроса живут параллельно и не
+    обязаны вернуться в порядке отправки: медленный ответ прошлого
+    аккаунта, придя последним, положил бы его подписки в интерфейс
+    нового. Тот же приём, что в FavoritesProvider.
+  */
+  const requestSequence = useRef(0);
+
   const userId = user?.id ?? null;
 
   const refresh = useCallback(async () => {
@@ -90,6 +99,8 @@ export function SubscriptionsProvider({
     if (!headers) {
       return;
     }
+
+    const sequence = ++requestSequence.current;
 
     setLoading(true);
 
@@ -103,6 +114,10 @@ export function SubscriptionsProvider({
         }),
       ]);
 
+      if (sequence !== requestSequence.current) {
+        return;
+      }
+
       if (!listResponse.ok || !idsResponse.ok) {
         return;
       }
@@ -112,6 +127,10 @@ export function SubscriptionsProvider({
 
       const ids: string[] = await idsResponse.json();
 
+      if (sequence !== requestSequence.current) {
+        return;
+      }
+
       setBusinesses(list);
       setSubscribedIds(new Set(ids));
     } catch (error) {
@@ -120,7 +139,9 @@ export function SubscriptionsProvider({
         error,
       );
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -130,6 +151,9 @@ export function SubscriptionsProvider({
     }
 
     ownerId.current = userId;
+
+    // Ответы, уехавшие за прошлый аккаунт, с этого момента недействительны.
+    requestSequence.current += 1;
 
     // Через таймер, чтобы не вызывать setState синхронно в эффекте.
     const timer = setTimeout(() => {
@@ -144,9 +168,21 @@ export function SubscriptionsProvider({
     return () => clearTimeout(timer);
   }, [userId, refresh]);
 
+  /*
+    Без пользователя показывать нечего. Маскируем в одном месте:
+    раньше context отдавал пустой subscribedIds, а isSubscribed
+    читал настоящий — и у вышедшего человека звёздочки на карточках
+    оставались зажжёнными от прошлого аккаунта.
+  */
+  const visibleIds = userId ? subscribedIds : EMPTY_IDS;
+
+  const visibleBusinesses = userId
+    ? businesses
+    : EMPTY_BUSINESSES;
+
   const isSubscribed = useCallback(
-    (businessId: string) => subscribedIds.has(businessId),
-    [subscribedIds],
+    (businessId: string) => visibleIds.has(businessId),
+    [visibleIds],
   );
 
   const toggleSubscription = useCallback(
@@ -252,8 +288,8 @@ export function SubscriptionsProvider({
 
   const value = useMemo(
     () => ({
-      subscribedIds: userId ? subscribedIds : EMPTY_IDS,
-      businesses,
+      subscribedIds: visibleIds,
+      businesses: visibleBusinesses,
       pendingIds,
       loading,
       isSubscribed,
@@ -261,9 +297,8 @@ export function SubscriptionsProvider({
       refresh,
     }),
     [
-      userId,
-      subscribedIds,
-      businesses,
+      visibleIds,
+      visibleBusinesses,
       pendingIds,
       loading,
       isSubscribed,

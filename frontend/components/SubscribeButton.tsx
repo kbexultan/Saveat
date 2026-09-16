@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/components/AuthProvider";
 import { useSubscriptions } from "@/components/SubscriptionsProvider";
@@ -22,6 +22,7 @@ export function SubscribeButton({
   size?: "compact" | "full";
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
 
   const {
@@ -39,7 +40,14 @@ export function SubscribeButton({
     }
 
     if (!user) {
-      router.push("/login?next=/");
+      // Возвращаем на ту же страницу, а не на главную: кнопка живёт
+      // и на карточке предложения, и на странице заведения, и после
+      // входа человек ожидает оказаться там, где нажал.
+      const params = new URLSearchParams({
+        next: pathname || "/",
+      });
+
+      router.push(`/login?${params.toString()}`);
       return;
     }
 

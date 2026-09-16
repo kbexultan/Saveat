@@ -20,7 +20,16 @@ export type OrderStatus =
   | "picked_up"
   | "cancelled";
 
-export type OfferStatus = "active" | "paused" | "sold_out";
+/**
+ * "expired" в базе не хранится: backend считает его по pickup_end,
+ * когда окно выдачи уже закрылось (offers.effective_offer_status).
+ * Поэтому он приходит в ответах, но его нельзя отправить в PATCH.
+ */
+export type OfferStatus =
+  | "active"
+  | "paused"
+  | "sold_out"
+  | "expired";
 
 export type PaymentMethod = "pay_on_pickup";
 

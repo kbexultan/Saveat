@@ -38,6 +38,9 @@ function EditOfferForm({
   const start = splitAlmatyDateTime(offer.pickup_start);
   const end = splitAlmatyDateTime(offer.pickup_end);
 
+  // "expired" backend считает сам по pickup_end — в базе его нет.
+  const isExpired = offer.status === "expired";
+
   const [title, setTitle] = useState(offer.title);
   const [description, setDescription] = useState(offer.description ?? "");
 
@@ -198,9 +201,16 @@ function EditOfferForm({
           </View>
         </View>
 
+        {/*
+          Просроченное предложение переключателем не оживить: сначала
+          нужно продлить окно выдачи в форме ниже — там же и сохранить.
+        */}
         <Pressable
           accessibilityRole="switch"
-          accessibilityState={{ checked: offer.status === "active" }}
+          accessibilityState={{
+            checked: offer.status === "active",
+            disabled: isExpired,
+          }}
           onPress={() =>
             submit(
               {
@@ -209,16 +219,20 @@ function EditOfferForm({
               false,
             )
           }
-          disabled={submitting}
+          disabled={submitting || isExpired}
           className={
             "min-h-[52px] flex-row items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3 " +
-            (submitting ? "opacity-50" : "active:bg-surface")
+            (submitting || isExpired
+              ? "opacity-50"
+              : "active:bg-surface")
           }
         >
           <Text className="flex-1 text-sm font-medium text-ink">
-            {offer.status === "active"
-              ? "Предложение видно покупателям"
-              : "Предложение скрыто с витрины"}
+            {isExpired
+              ? "Окно выдачи закрылось — продлите срок ниже"
+              : offer.status === "active"
+                ? "Предложение видно покупателям"
+                : "Предложение скрыто с витрины"}
           </Text>
 
           <View

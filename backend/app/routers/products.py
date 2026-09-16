@@ -134,25 +134,10 @@ def get_business_products(
     return result.scalars().all()
 
 
-@router.get(
-    "",
-    response_model=list[
-        ProductResponse
-    ],
-)
-def get_products(
-    db: Session = Depends(
-        get_db
-    ),
-):
-    result = db.execute(
-        select(Product)
-        .order_by(
-            Product.created_at.desc()
-        )
-    )
-
-    return result.scalars().all()
+# Здесь был GET /products без авторизации, отдававший товары всех
+# заведений разом, включая отключённые (is_active = false). Его никто
+# не вызывал: кабинету хватает /products/business/{business_id},
+# а покупателю товары приходят внутри предложений.
 
 
 @router.get(
@@ -161,6 +146,11 @@ def get_products(
 )
 def get_product(
     product_id: UUID,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
     db: Session = Depends(
         get_db
     ),
@@ -177,6 +167,17 @@ def get_product(
                 "Product not found"
             ),
         )
+
+    # Как /offers/{offer_id}: этот эндпоинт дёргает только кабинет
+    # заведения (карточка товара), покупателю товар виден внутри
+    # предложения. base_price и is_active — внутренняя кухня, доступ
+    # проверяем по членству в бизнесе, а не только по факту логина.
+    get_business_membership_or_403(
+        db=db,
+        user_id=current_user.id,
+        business_id=product.business_id,
+        allowed_roles=BUSINESS_ROLES,
+    )
 
     return product
 

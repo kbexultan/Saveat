@@ -13,6 +13,24 @@ from pydantic import (
 )
 
 
+def require_timezone(value: datetime | None) -> datetime | None:
+    """
+    Время выдачи должно приходить со смещением ("...+05:00").
+
+    В базе pickup_start/pickup_end лежат как timestamptz, и сравнить
+    их с датой без зоны Python не может — вместо понятной ошибки
+    запрос падал с 500. Гадать за клиента, какой у него часовой пояс,
+    хуже, чем сказать об этом прямо.
+    """
+    if value is not None and value.tzinfo is None:
+        raise ValueError(
+            "datetime must include a timezone offset, "
+            "for example 2026-09-17T18:00:00+05:00"
+        )
+
+    return value
+
+
 class OfferCreate(BaseModel):
     branch_id: UUID
     product_id: UUID | None = None
@@ -29,6 +47,11 @@ class OfferCreate(BaseModel):
 
     pickup_start: datetime
     pickup_end: datetime
+
+    _check_timezone = field_validator(
+        "pickup_start",
+        "pickup_end",
+    )(require_timezone)
 
     @model_validator(mode="after")
     def validate_offer(self):
@@ -76,6 +99,9 @@ class OfferResponse(BaseModel):
     pickup_start: datetime
     pickup_end: datetime
 
+    # active / paused / sold_out — как в базе, плюс expired: его
+    # backend считает по pickup_end на чтении, в базе такого
+    # значения нет. См. offers.effective_offer_status.
     status: str
 
     created_at: datetime
@@ -143,6 +169,11 @@ class OfferUpdate(BaseModel):
 
     pickup_start: datetime | None = None
     pickup_end: datetime | None = None
+
+    _check_timezone = field_validator(
+        "pickup_start",
+        "pickup_end",
+    )(require_timezone)
 
     # Бизнес может только включить
     # или выключить предложение.
