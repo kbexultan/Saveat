@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
     func,
@@ -21,6 +22,16 @@ from app.models.base import Base
 
 class Notification(Base):
     __tablename__ = "notifications"
+
+    # Created by migration e5b2a9c73f41. Declared here as well so that
+    # `alembic revision --autogenerate` does not propose dropping it.
+    __table_args__ = (
+        Index(
+            "ix_notifications_user_unread",
+            "user_id",
+            "is_read",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

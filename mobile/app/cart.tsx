@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
@@ -12,13 +12,39 @@ import {
 import { MAX_QUANTITY_PER_OFFER } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart, type CartItem } from "@/contexts/CartContext";
-import { api, toErrorMessage } from "@/lib/api";
+import { ApiError, NetworkError, api } from "@/lib/api";
+import {
+  CHECKOUT_NETWORK_ERROR_MESSAGE,
+  describeCheckoutError,
+  describeCheckoutFailure,
+} from "@/lib/checkoutErrors";
 import {
   categoryEmoji,
   formatPickupWindow,
   formatPrice,
   toNumber,
 } from "@/lib/format";
+
+/**
+ * Russian message for a failed checkout. The raw backend text (e.g.
+ * "Круассан is unavailable") only goes to the dev console.
+ */
+function describeCheckoutCaught(caught: unknown): string {
+  if (__DEV__) {
+    console.warn("[checkout] failed", caught);
+  }
+
+  if (caught instanceof ApiError) {
+    // For string details ApiError.message is the backend `detail`.
+    return describeCheckoutError(caught.status, caught.message).message;
+  }
+
+  if (caught instanceof NetworkError) {
+    return CHECKOUT_NETWORK_ERROR_MESSAGE;
+  }
+
+  return describeCheckoutFailure(caught).message;
+}
 
 function CartRow({
   item,
@@ -160,6 +186,9 @@ export default function CartScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // `submitting` in this closure can be stale on a fast double tap;
+  // the ref stops the second request synchronously.
+  const submittingRef = useRef(false);
 
   const pickupStart = items.reduce<string | null>((latest, item) => {
     if (!latest || item.offer.pickup_start > latest) {
@@ -178,7 +207,7 @@ export default function CartScreen() {
   }, null);
 
   async function handleCheckout() {
-    if (submitting || items.length === 0) {
+    if (submittingRef.current || items.length === 0) {
       return;
     }
 
@@ -187,6 +216,7 @@ export default function CartScreen() {
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
 
@@ -205,8 +235,10 @@ export default function CartScreen() {
 
       router.replace(`/orders/${order.id}`);
     } catch (caught) {
-      setError(toErrorMessage(caught));
+      // Cart items are kept so the customer can adjust and retry.
+      setError(describeCheckoutCaught(caught));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }

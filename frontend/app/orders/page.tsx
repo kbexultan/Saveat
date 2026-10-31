@@ -11,70 +11,26 @@ import {
 
 import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
-
-
-type OrderItem = {
-  id: string;
-  offer_id: string | null;
-
-  offer_title: string;
-
-  product_name: string | null;
-  product_image_url: string | null;
-
-  quantity: number;
-
-  unit_price: string | number;
-  total_price: string | number;
-};
-
-
-type Order = {
-  id: string;
-  user_id: string;
-  branch_id: string;
-
-  business_name: string;
-  branch_name: string;
-  address: string;
-
-  pickup_start: string;
-  pickup_end: string;
-
-  total_price: string | number;
-
-  payment_method: string;
-
-  status: string;
-  pickup_code: string;
-
-  created_at: string;
-  picked_up_at: string | null;
-
-  items: OrderItem[];
-};
+import {
+  NETWORK_ERROR_MESSAGE,
+  isNetworkError,
+} from "@/lib/apiErrors";
+import {
+  type Order,
+  describeCancelError,
+  describeOrderListError,
+  formatOrderNumber,
+  formatPickupDateWindow,
+  getOrderStatusLabel,
+  getPaymentMethodLabel,
+  getTotalQuantity,
+} from "@/lib/orders";
 
 
 const API_URL =
   process.env
     .NEXT_PUBLIC_API_URL ??
   "http://127.0.0.1:8001";
-
-
-function formatTime(
-  date: string,
-) {
-  return new Intl.DateTimeFormat(
-    "ru-RU",
-    {
-      timeZone:
-        "Asia/Almaty",
-
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  ).format(new Date(date));
-}
 
 
 function formatDate(
@@ -91,45 +47,6 @@ function formatDate(
       year: "numeric",
     },
   ).format(new Date(date));
-}
-
-
-function getStatus(
-  status: string,
-) {
-  switch (status) {
-    case "reserved":
-      return "Забронирован";
-
-    case "paid":
-      return "Оплачен";
-
-    case "ready":
-      return "Готов к выдаче";
-
-    case "picked_up":
-      return "Получен";
-
-    case "cancelled":
-      return "Отменён";
-
-    default:
-      return status;
-  }
-}
-
-
-function getPaymentMethod(
-  method: string,
-) {
-  if (
-    method ===
-    "pay_on_pickup"
-  ) {
-    return "При получении";
-  }
-
-  return method;
 }
 
 
@@ -221,9 +138,13 @@ export default function OrdersPage() {
         }
 
         if (!response.ok) {
-          throw new Error(
-            "Не удалось загрузить заказы.",
+          setError(
+            describeOrderListError(
+              response.status,
+            ),
           );
+
+          return;
         }
 
         const data: Order[] =
@@ -231,17 +152,11 @@ export default function OrdersPage() {
 
         setOrders(data);
       } catch (err) {
-        if (
-          err instanceof Error
-        ) {
-          setError(
-            err.message,
-          );
-        } else {
-          setError(
-            "Не удалось загрузить заказы.",
-          );
-        }
+        setError(
+          isNetworkError(err)
+            ? NETWORK_ERROR_MESSAGE
+            : "Не удалось загрузить заказы.",
+        );
       } finally {
         setLoading(false);
       }
@@ -319,10 +234,14 @@ export default function OrdersPage() {
       }
 
       if (!response.ok) {
-        throw new Error(
-          data?.detail ??
-            "Не удалось отменить заказ.",
+        setError(
+          describeCancelError(
+            response.status,
+            data?.detail,
+          ),
         );
+
+        return;
       }
 
       setOrders(
@@ -340,17 +259,11 @@ export default function OrdersPage() {
           ),
       );
     } catch (err) {
-      if (
-        err instanceof Error
-      ) {
-        setError(
-          err.message,
-        );
-      } else {
-        setError(
-          "Не удалось отменить заказ.",
-        );
-      }
+      setError(
+        isNetworkError(err)
+          ? NETWORK_ERROR_MESSAGE
+          : "Не удалось отменить заказ.",
+      );
     } finally {
       setCancellingId(
         null,
@@ -380,7 +293,10 @@ export default function OrdersPage() {
         </div>
 
         {error && (
-          <div className="mb-5 rounded-2xl bg-[#FBE3E1] p-4 text-sm font-medium text-[#A64F55]">
+          <div
+            role="alert"
+            className="mb-5 rounded-2xl bg-[#FBE3E1] p-4 text-sm font-medium text-[#A64F55]"
+          >
             {error}
           </div>
         )}
@@ -392,8 +308,10 @@ export default function OrdersPage() {
           </div>
         )}
 
+        {/* A failed load is not an empty history. */}
         {!authLoading &&
           !loading &&
+          !error &&
           orders.length ===
             0 && (
             <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
@@ -434,14 +352,8 @@ export default function OrdersPage() {
                     );
 
                   const totalQuantity =
-                    order.items.reduce(
-                      (
-                        sum,
-                        item,
-                      ) =>
-                        sum +
-                        item.quantity,
-                      0,
+                    getTotalQuantity(
+                      order,
                     );
 
                   const isCancelled =
@@ -477,12 +389,9 @@ export default function OrdersPage() {
 
                             <p className="mt-1 text-sm text-[#806E68]">
                               Заказ №
-                              {order.id
-                                .slice(
-                                  0,
-                                  8,
-                                )
-                                .toUpperCase()}
+                              {formatOrderNumber(
+                                order.id,
+                              )}
                             </p>
                           </div>
 
@@ -496,7 +405,7 @@ export default function OrdersPage() {
                                   : "bg-[#F7DFDC] text-[#B85F68]"
                             }`}
                           >
-                            {getStatus(
+                            {getOrderStatusLabel(
                               order.status,
                             )}
                           </span>
@@ -614,11 +523,8 @@ export default function OrdersPage() {
                             </p>
 
                             <p className="mt-1 font-bold">
-                              {formatTime(
+                              {formatPickupDateWindow(
                                 order.pickup_start,
-                              )}
-                              –
-                              {formatTime(
                                 order.pickup_end,
                               )}
                             </p>
@@ -630,7 +536,7 @@ export default function OrdersPage() {
                             </p>
 
                             <p className="mt-1 font-bold">
-                              {getPaymentMethod(
+                              {getPaymentMethodLabel(
                                 order.payment_method,
                               )}
                             </p>
