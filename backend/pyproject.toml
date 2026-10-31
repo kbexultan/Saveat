@@ -13,3 +13,13 @@ dependencies = [
     "pywebpush>=2.2.0",
     "sqlalchemy>=2.0.52",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"

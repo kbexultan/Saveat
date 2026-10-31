@@ -1,6 +1,7 @@
 "use client";
 
 import {
+    useRef,
     useState,
 } from "react";
 
@@ -17,6 +18,11 @@ import {
 import {
     useCart,
 } from "@/components/CartProvider";
+
+import {
+    describeCheckoutError,
+    describeCheckoutFailure,
+} from "@/lib/checkoutErrors";
 
 const API_URL =
     process.env
@@ -61,6 +67,12 @@ export default function CartPage() {
     const [error, setError] =
         useState("");
 
+    // State updates are async, so two fast clicks can both see
+    // checkingOut === false. The ref blocks the second request
+    // synchronously.
+    const submittingRef =
+        useRef(false);
+
     const totalPrice =
         items.reduce(
             (sum, item) =>
@@ -74,6 +86,10 @@ export default function CartPage() {
         );
 
     async function checkout() {
+        if (submittingRef.current) {
+            return;
+        }
+
         setError("");
 
         if (authLoading) {
@@ -105,9 +121,10 @@ export default function CartPage() {
             return;
         }
 
-        try {
-            setCheckingOut(true);
+        submittingRef.current = true;
+        setCheckingOut(true);
 
+        try {
             const response =
                 await fetch(
                     `${API_URL}/orders/checkout`,
@@ -162,34 +179,41 @@ export default function CartPage() {
             }
 
             if (!response.ok) {
-                let message =
-                    "Не удалось оформить заказ.";
-
-                if (
+                const detail =
                     data &&
                     typeof data ===
                     "object" &&
                     "detail" in data
-                ) {
-                    const detail =
-                        (
+                        ? (
                             data as {
                                 detail?: unknown;
                             }
-                        ).detail;
+                        ).detail
+                        : undefined;
 
-                    if (
-                        typeof detail ===
-                        "string"
-                    ) {
-                        message =
-                            detail;
-                    }
+                // The raw backend message stays in the dev console
+                // for debugging; the customer gets a Russian text.
+                if (
+                    process.env.NODE_ENV !==
+                    "production"
+                ) {
+                    console.warn(
+                        "[checkout] failed",
+                        response.status,
+                        detail,
+                    );
                 }
 
-                throw new Error(
-                    message,
+                // Cart items are kept: the customer decides what
+                // to change after reading the message.
+                setError(
+                    describeCheckoutError(
+                        response.status,
+                        detail,
+                    ).message,
                 );
+
+                return;
             }
 
             if (
@@ -202,9 +226,14 @@ export default function CartPage() {
                     }
                 ).id !== "string"
             ) {
-                throw new Error(
-                    "Заказ создан, но сервер не вернул ID заказа.",
-                );
+                // A 2xx means the order was created. Keeping the cart
+                // would invite a duplicate order, so clear it and show
+                // the order list instead of a confirmation we can't open.
+                clearCart();
+
+                router.push("/orders");
+
+                return;
             }
 
             const orderId = (
@@ -220,17 +249,22 @@ export default function CartPage() {
             );
         } catch (err) {
             if (
-                err instanceof Error
+                process.env.NODE_ENV !==
+                "production"
             ) {
-                setError(
-                    err.message,
-                );
-            } else {
-                setError(
-                    "Не удалось оформить заказ.",
+                console.warn(
+                    "[checkout] request error",
+                    err,
                 );
             }
+
+            setError(
+                describeCheckoutFailure(
+                    err,
+                ).message,
+            );
         } finally {
+            submittingRef.current = false;
             setCheckingOut(false);
         }
     }
@@ -559,7 +593,10 @@ export default function CartPage() {
                             </div>
 
                             {error && (
-                                <div className="mt-4 rounded-xl bg-[#FBE3E1] px-3 py-3 text-sm text-[#A64F55]">
+                                <div
+                                    role="alert"
+                                    className="mt-4 rounded-xl bg-[#FBE3E1] px-3 py-3 text-sm text-[#A64F55]"
+                                >
                                     {error}
                                 </div>
                             )}
@@ -571,6 +608,7 @@ export default function CartPage() {
                                     checkingOut ||
                                     authLoading
                                 }
+                                aria-busy={checkingOut}
                                 className="mt-6 w-full rounded-2xl bg-primary py-3.5 font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {checkingOut

@@ -680,6 +680,24 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 
 ---
 
+# 22. Automated tests
+
+Backend tests use an isolated PostgreSQL in Docker and refuse to connect
+to Supabase or any other non-local database.
+
+```bash
+docker compose -f docker-compose.test.yml up -d --wait
+cd backend && uv run pytest
+cd ../frontend && npm test
+cd ../mobile && npm test
+docker compose -f docker-compose.test.yml down -v
+```
+
+Details, safeguards and manual QA steps:
+[`backend/tests/README.md`](backend/tests/README.md).
+
+---
+
 # SAVEAT
 
 **Save food. Save money.**

@@ -12,70 +12,26 @@ import {
 
 import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
-
-
-type OrderItem = {
-  id: string;
-  offer_id: string | null;
-
-  offer_title: string;
-
-  product_name: string | null;
-  product_image_url: string | null;
-
-  quantity: number;
-
-  unit_price: string | number;
-  total_price: string | number;
-};
-
-
-type Order = {
-  id: string;
-  user_id: string;
-  branch_id: string;
-
-  business_name: string;
-  branch_name: string;
-  address: string;
-
-  pickup_start: string;
-  pickup_end: string;
-
-  total_price: string | number;
-
-  payment_method: string;
-
-  status: string;
-  pickup_code: string;
-
-  created_at: string;
-  picked_up_at: string | null;
-
-  items: OrderItem[];
-};
+import {
+  NETWORK_ERROR_MESSAGE,
+  isNetworkError,
+} from "@/lib/apiErrors";
+import {
+  type Order,
+  describeCancelError,
+  describeOrderLoadError,
+  formatOrderNumber,
+  formatPickupDateWindow,
+  getOrderStatusLabel,
+  getPaymentMethodLabel,
+  getTotalQuantity,
+} from "@/lib/orders";
 
 
 const API_URL =
   process.env
     .NEXT_PUBLIC_API_URL ??
   "http://127.0.0.1:8001";
-
-
-function formatTime(
-  date: string,
-) {
-  return new Intl.DateTimeFormat(
-    "ru-RU",
-    {
-      timeZone:
-        "Asia/Almaty",
-
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  ).format(new Date(date));
-}
 
 
 function formatDate(
@@ -95,31 +51,6 @@ function formatDate(
       minute: "2-digit",
     },
   ).format(new Date(date));
-}
-
-
-function getStatus(
-  status: string,
-) {
-  switch (status) {
-    case "reserved":
-      return "Забронирован";
-
-    case "paid":
-      return "Оплачен";
-
-    case "ready":
-      return "Готов к выдаче";
-
-    case "picked_up":
-      return "Получен";
-
-    case "cancelled":
-      return "Отменён";
-
-    default:
-      return status;
-  }
 }
 
 
@@ -219,19 +150,17 @@ export default function OrderPage() {
           return;
         }
 
-        if (
-          response.status ===
-          404
-        ) {
-          throw new Error(
-            "Заказ не найден.",
-          );
-        }
-
         if (!response.ok) {
-          throw new Error(
-            "Не удалось загрузить заказ.",
+          // 403 means the order belongs to another customer. The
+          // backend sends no order data with it, and neither do we.
+          setOrder(null);
+          setError(
+            describeOrderLoadError(
+              response.status,
+            ),
           );
+
+          return;
         }
 
         const data: Order =
@@ -239,17 +168,11 @@ export default function OrderPage() {
 
         setOrder(data);
       } catch (err) {
-        if (
-          err instanceof Error
-        ) {
-          setError(
-            err.message,
-          );
-        } else {
-          setError(
-            "Не удалось загрузить заказ.",
-          );
-        }
+        setError(
+          isNetworkError(err)
+            ? NETWORK_ERROR_MESSAGE
+            : "Не удалось загрузить заказ.",
+        );
       } finally {
         setLoading(false);
       }
@@ -300,27 +223,51 @@ export default function OrderPage() {
           },
         );
 
-      const data =
-        await response.json();
+      let data: unknown = null;
+
+      try {
+        data =
+          await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (
+        response.status === 401
+      ) {
+        localStorage.removeItem(
+          "access_token",
+        );
+
+        router.push(
+          "/login",
+        );
+
+        return;
+      }
 
       if (!response.ok) {
-        throw new Error(
-          typeof data.detail ===
-            "string"
-            ? data.detail
-            : "Не удалось отменить заказ.",
+        setError(
+          describeCancelError(
+            response.status,
+            (
+              data as {
+                detail?: unknown;
+              } | null
+            )?.detail,
+          ),
         );
+
+        return;
       }
 
-      setOrder(data);
+      setOrder(data as Order);
     } catch (err) {
-      if (
-        err instanceof Error
-      ) {
-        setError(
-          err.message,
-        );
-      }
+      setError(
+        isNetworkError(err)
+          ? NETWORK_ERROR_MESSAGE
+          : "Не удалось отменить заказ.",
+      );
     } finally {
       setCancelling(false);
     }
@@ -328,12 +275,9 @@ export default function OrderPage() {
 
 
   const totalQuantity =
-    order?.items.reduce(
-      (sum, item) =>
-        sum +
-        item.quantity,
-      0,
-    ) ?? 0;
+    order
+      ? getTotalQuantity(order)
+      : 0;
 
 
   return (
@@ -361,7 +305,10 @@ export default function OrderPage() {
         )}
 
         {error && (
-          <div className="mb-5 rounded-2xl bg-[#FBE3E1] p-4 text-sm font-medium text-[#A64F55]">
+          <div
+            role="alert"
+            className="mb-5 rounded-2xl bg-[#FBE3E1] p-4 text-sm font-medium text-[#A64F55]"
+          >
             {error}
           </div>
         )}
@@ -414,17 +361,14 @@ export default function OrderPage() {
 
                       <p className="mt-1 text-sm text-[#806E68]">
                         Заказ №
-                        {order.id
-                          .slice(
-                            0,
-                            8,
-                          )
-                          .toUpperCase()}
+                        {formatOrderNumber(
+                          order.id,
+                        )}
                       </p>
                     </div>
 
                     <span className="rounded-full bg-[#F7DFDC] px-4 py-2 text-sm font-semibold text-[#B85F68]">
-                      {getStatus(
+                      {getOrderStatusLabel(
                         order.status,
                       )}
                     </span>
@@ -566,11 +510,8 @@ export default function OrderPage() {
                       </p>
 
                       <p className="mt-1 font-bold">
-                        {formatTime(
+                        {formatPickupDateWindow(
                           order.pickup_start,
-                        )}
-                        –
-                        {formatTime(
                           order.pickup_end,
                         )}
                       </p>
@@ -582,7 +523,9 @@ export default function OrderPage() {
                       </p>
 
                       <p className="mt-1 font-bold">
-                        При получении
+                        {getPaymentMethodLabel(
+                          order.payment_method,
+                        )}
                       </p>
                     </div>
                   </div>
