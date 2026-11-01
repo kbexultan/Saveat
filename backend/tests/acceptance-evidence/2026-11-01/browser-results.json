@@ -1,0 +1,130 @@
+[
+  {
+    "id": "US3-AC1",
+    "description": "confirmation page shows order code",
+    "pass": true,
+    "actual": "SVT-2C7C376FDE"
+  },
+  {
+    "id": "US3-AC1",
+    "description": "confirmation page shows pickup time window",
+    "pass": true,
+    "actual": "1 ноября, 06:08–09:08"
+  },
+  {
+    "id": "US3-AC1",
+    "description": "confirmation page shows bakery address",
+    "pass": true,
+    "actual": "Test street 1, Almaty"
+  },
+  {
+    "id": "US3-AC1",
+    "description": "confirmation page shows bakery name",
+    "pass": true,
+    "actual": "Saveat Test Bakery"
+  },
+  {
+    "id": "US3-AC2",
+    "description": "database quantity decreased 3 -> 1 after booking 2",
+    "pass": true,
+    "actual": {
+      "quantity_remaining": 1,
+      "status": "active",
+      "orders": 1,
+      "min_quantity": 1
+    }
+  },
+  {
+    "id": "US3-AC2",
+    "description": "storefront shows 'Осталось 3 шт.' before and '1 шт.' after",
+    "pass": true,
+    "actual": {
+      "before": "Осталось\n3 шт.",
+      "after": "Осталось\n1 шт."
+    }
+  },
+  {
+    "id": "US3-AC2",
+    "description": "order appears in customer's history",
+    "pass": true,
+    "actual": "SVT-2C7C376FDE"
+  },
+  {
+    "id": "US3-AC2",
+    "description": "history shows status 'Забронирован'",
+    "pass": true,
+    "actual": "Забронирован"
+  },
+  {
+    "id": "US5-AC1",
+    "description": "customer A booking succeeds",
+    "pass": true,
+    "actual": 201
+  },
+  {
+    "id": "US5-AC1",
+    "description": "customer B sees the Russian unavailable-product message",
+    "pass": true,
+    "actual": "К сожалению, товар закончился. Обновите корзину и попробуйте снова."
+  },
+  {
+    "id": "US5-AC1",
+    "description": "raw English backend text is not shown",
+    "pass": true,
+    "actual": null
+  },
+  {
+    "id": "US5-AC1",
+    "description": "customer B stays on the cart with the item kept",
+    "pass": true,
+    "actual": null
+  },
+  {
+    "id": "US5-AC2",
+    "description": "cart shows the live stock after the conflict (no stale 'Осталось: 1 шт.')",
+    "pass": true,
+    "actual": "Нет в наличии"
+  },
+  {
+    "id": "US5-AC1",
+    "description": "double click sends one checkout request",
+    "pass": true,
+    "actual": 1
+  },
+  {
+    "id": "US5-AC1",
+    "description": "raw 409 logged to the dev console only",
+    "pass": true,
+    "actual": [
+      "[checkout] failed 409 Last croissant is unavailable"
+    ]
+  },
+  {
+    "id": "US5-AC1",
+    "description": "only one order exists in the database",
+    "pass": true,
+    "actual": {
+      "quantity_remaining": 0,
+      "status": "sold_out",
+      "orders": 1,
+      "min_quantity": 0
+    }
+  },
+  {
+    "id": "US5-AC2",
+    "description": "database quantity is 0 and never negative",
+    "pass": true,
+    "actual": {
+      "quantity_remaining": 0,
+      "status": "sold_out",
+      "orders": 1,
+      "min_quantity": 0
+    }
+  },
+  {
+    "id": "US5-AC2",
+    "description": "storefront no longer offers the sold-out item (matches 0 in DB)",
+    "pass": true,
+    "actual": null
+  }
+]
