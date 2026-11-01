@@ -141,12 +141,27 @@ runner):
 | `test_migrations.py` | ST9, ST1 |
 | `frontend/lib/checkoutErrors.test.ts`, `mobile/lib/checkoutErrors.test.ts` | ST6 |
 | `frontend/lib/orders.test.ts` | ST5, ST7 |
+| `test_acceptance_us3_us5.py` | ST4 (US5-AC1/AC2), ST8 (US3-AC1/AC2) |
+| `browser/run_acceptance.mjs`, `browser/db_tool.py` | ST4, ST8 (web checks) |
+| `frontend/lib/cartAvailability.test.ts` | ST4 (US5-AC2, cart stock) |
 
-## Missing specifications
+## Acceptance criteria (US3, US5)
 
-The repository has no user stories or acceptance criteria. US3 and US5 are
-not written down anywhere in it: no docs folder, and nothing in either
-README. The tests above pin the behaviour the code implements today. They
-are not a check against the original acceptance criteria. When the US3
-and US5 text from the project management documents is available, compare
-it with this table and add the missing cases.
+The original criteria come from IT_PM_A6_A7_Saveat_Report.docx, Section 3.
+`test_acceptance_us3_us5.py` has one or more tests per criterion. Results,
+evidence and dates are in [ACCEPTANCE_CHECK_LOG.md](ACCEPTANCE_CHECK_LOG.md).
+
+## Browser acceptance checks
+
+`browser/run_acceptance.mjs` drives the real web app in headless Chrome
+over the DevTools Protocol, with a throwaway profile, and saves
+screenshots plus `browser-results.json`. It needs the test database, the
+guarded API and the web dev server:
+
+```bash
+cd backend && uv run python -m tests.serve
+cd frontend && NEXT_PUBLIC_API_URL=http://127.0.0.1:8011 npx next dev -p 3001
+node backend/tests/browser/run_acceptance.mjs "$(pwd)" backend/tests/acceptance-evidence/<date>
+```
+
+Set `CHROME_PATH` if Chrome is not installed in its default location.

@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "@/components/AuthProvider";
 import type { Offer } from "@/components/OfferCard";
+import { applyLiveAvailability } from "@/lib/cartAvailability";
 
 export type CartItem = {
   offer: Offer;
@@ -41,6 +42,11 @@ type CartContextType = {
   ) => void;
 
   clearCart: () => void;
+
+  // Replaces the stored stock numbers with the live storefront values.
+  syncAvailability: (
+    liveOffers: Offer[],
+  ) => void;
 };
 
 const CartContext =
@@ -309,6 +315,17 @@ export function CartProvider({
     setItems([]);
   }
 
+  function syncAvailability(
+    liveOffers: Offer[],
+  ) {
+    setItems((current) =>
+      applyLiveAvailability(
+        current,
+        liveOffers,
+      ),
+    );
+  }
+
   const totalItems =
     items.reduce(
       (sum, item) =>
@@ -325,6 +342,7 @@ export function CartProvider({
         updateQuantity,
         removeItem,
         clearCart,
+        syncAvailability,
       }}
     >
       {children}

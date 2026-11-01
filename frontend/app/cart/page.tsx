@@ -57,6 +57,7 @@ export default function CartPage() {
         updateQuantity,
         removeItem,
         clearCart,
+        syncAvailability,
     } = useCart();
 
     const [
@@ -66,6 +67,26 @@ export default function CartPage() {
 
     const [error, setError] =
         useState("");
+
+    // After a stock conflict the cart's saved "Осталось" numbers are
+    // stale. Reload them from the storefront so the cart shows what the
+    // database holds. A failed refresh leaves the cart as it was.
+    async function refreshAvailability() {
+        try {
+            const response =
+                await fetch(
+                    `${API_URL}/offers/public`,
+                );
+
+            if (response.ok) {
+                syncAvailability(
+                    await response.json(),
+                );
+            }
+        } catch {
+            // The error message is already shown.
+        }
+    }
 
     // State updates are async, so two fast clicks can both see
     // checkingOut === false. The ref blocks the second request
@@ -204,14 +225,24 @@ export default function CartPage() {
                     );
                 }
 
-                // Cart items are kept: the customer decides what
-                // to change after reading the message.
-                setError(
+                const checkoutError =
                     describeCheckoutError(
                         response.status,
                         detail,
-                    ).message,
+                    );
+
+                // Cart items are kept: the customer decides what
+                // to change after reading the message.
+                setError(
+                    checkoutError.message,
                 );
+
+                if (
+                    response.status === 409 ||
+                    response.status === 404
+                ) {
+                    await refreshAvailability();
+                }
 
                 return;
             }
@@ -459,12 +490,11 @@ export default function CartPage() {
 
                                                     <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#EEE2D8] pt-4">
                                                         <p className="text-xs text-[#8D7770]">
-                                                            Осталось:{" "}
-                                                            {
-                                                                item.offer
-                                                                    .quantity_remaining
-                                                            }{" "}
-                                                            шт.
+                                                            {item.offer
+                                                                .quantity_remaining >
+                                                            0
+                                                                ? `Осталось: ${item.offer.quantity_remaining} шт.`
+                                                                : "Нет в наличии"}
                                                         </p>
 
                                                         <button
