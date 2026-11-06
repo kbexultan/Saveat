@@ -34,6 +34,7 @@ const { SOLD_OUT_MESSAGE } = await import(
 );
 
 const results = [];
+const pages = [];
 function check(id, description, pass, actual) {
   results.push({ id, description, pass: Boolean(pass), actual });
   console.log(`${pass ? "PASS" : "FAIL"} ${id} ${description} :: ${JSON.stringify(actual)}`);
@@ -105,12 +106,19 @@ async function newPage() {
   const { browserContextId } = await send("Target.createBrowserContext");
   const { targetId } = await send("Target.createTarget", { url: "about:blank", browserContextId });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
-  const page = { sessionId, console: [], checkoutRequests: 0 };
+  const page = { sessionId, console: [], network: [], checkoutRequests: 0 };
+  pages.push(page);
   listeners.push((msg) => {
     if (msg.sessionId !== sessionId) return;
     if (msg.method === "Runtime.consoleAPICalled") {
       page.console.push(msg.params.args.map((a) => a.value ?? a.description).join(" "));
     }
+    if (msg.method === "Runtime.exceptionThrown") page.console.push(msg.params.exceptionDetails);
+    if (msg.method === "Network.responseReceived") {
+      const { url, status } = msg.params.response;
+      if (url.startsWith(API) || status >= 400) page.network.push({ url, status });
+    }
+    if (msg.method === "Network.loadingFailed") page.network.push(msg.params);
     if (msg.method === "Network.requestWillBeSent") {
       const { url, method } = msg.params.request;
       if (url.endsWith("/orders/checkout") && method === "POST") page.checkoutRequests++;
@@ -138,7 +146,7 @@ async function waitFor(page, expression, label, timeout = 30000) {
   }
   let snapshot = "";
   try {
-    snapshot = await evaluate(page, "location.href + '\n' + document.body.innerText.slice(0, 1500)");
+    snapshot = await evaluate(page, "JSON.stringify({url: location.href, text: document.body.innerText.slice(0, 3000)})");
   } catch {}
   throw new Error(`Timed out waiting for: ${label}
 --- page ---
@@ -317,6 +325,13 @@ try {
 } catch (error) {
   console.error("RUN ERROR", error);
   results.push({ id: "RUN", description: String(error), pass: false });
+  for (const [index, page] of pages.entries()) {
+    await shot(page, `failure-page-${index}.png`).catch(() => {});
+    writeFileSync(join(evidenceDir, `failure-page-${index}.json`), JSON.stringify({
+      console: page.console, network: page.network,
+      snapshot: await evaluate(page, "({url: location.href, text: document.body.innerText})").catch(String),
+    }, null, 2));
+  }
 } finally {
   writeFileSync(join(evidenceDir, "browser-results.json"), JSON.stringify(results, null, 2));
   ws.close();
