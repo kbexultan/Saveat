@@ -1,13 +1,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BusinessCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=150)
     description: str | None = None
-    logo_url: str | None = None
+    logo_url: str | None = Field(default=None, max_length=500)
 
 
 class BusinessResponse(BaseModel):

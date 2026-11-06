@@ -70,3 +70,23 @@ def test_seeded_customers_can_log_in(scenario, client):
 
         assert response.status_code == 200, response.json()
         assert response.json()["access_token"]
+
+
+def test_stabilization_migrations_round_trip_preserves_orders(scenario, db, client, auth_headers):
+    from alembic import command
+    from app.models.order import Order
+    from app.models.offer import Offer
+    from uuid import UUID
+    response = client.post("/orders/checkout", headers=auth_headers(scenario.customer_a_id), json={
+        "items": [{"offer_id": str(scenario.offer_id), "quantity": 1}], "idempotency_key": "migration-test",
+    })
+    assert response.status_code == 201
+    order_id = UUID(response.json()["id"])
+    code = response.json()["pickup_code"]
+    db.close()
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    command.downgrade(config, "a91f37c4e6b2")
+    command.upgrade(config, "head")
+    assert db.get(Order, order_id).pickup_code == code
+    assert db.get(Offer, scenario.offer_id).quantity_remaining == 0

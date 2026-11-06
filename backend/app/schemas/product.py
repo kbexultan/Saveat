@@ -10,15 +10,16 @@ from pydantic import (
 )
 
 from app.categories import normalize_category
+from app.schemas.patch import PatchModel
 
 
 class ProductCreate(BaseModel):
     business_id: UUID
-    name: str
+    name: str = Field(min_length=1, max_length=150)
     description: str | None = None
     category: str | None = None
-    image_url: str | None = None
-    base_price: Decimal
+    image_url: str | None = Field(default=None, max_length=500)
+    base_price: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
 
     @field_validator("category")
     @classmethod
@@ -42,13 +43,14 @@ class ProductResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-class ProductUpdate(BaseModel):
+class ProductUpdate(PatchModel):
+    non_nullable_fields = {"name", "base_price", "is_active"}
     # PATCH: меняем только
     # присланные поля.
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=150)
     description: str | None = None
     category: str | None = None
-    image_url: str | None = None
+    image_url: str | None = Field(default=None, max_length=500)
 
     base_price: Decimal | None = Field(
         default=None,
