@@ -2,6 +2,7 @@ import hashlib
 import json
 import uuid
 from decimal import Decimal
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import (
@@ -44,6 +45,11 @@ router = APIRouter(
     prefix="/orders",
     tags=["Orders"],
 )
+
+
+def cancellation_time(db: Session) -> datetime:
+    """Actual database time, including time spent waiting for row locks."""
+    return db.execute(select(func.clock_timestamp())).scalar_one()
 
 
 def generate_pickup_code() -> str:
@@ -921,12 +927,14 @@ def cancel_order(
             for offer in offers
         }
 
-        db_now = (
-            db.execute(
-                select(func.now())
+        # US8-AC2: check after all locks. PostgreSQL now() is the transaction
+        # start time and could still be before pickup after a long lock wait.
+        db_now = cancellation_time(db)
+        if order.pickup_start is None or db_now >= order.pickup_start:
+            raise HTTPException(
+                status_code=409,
+                detail="Order cannot be cancelled once pickup has started",
             )
-            .scalar_one()
-        )
 
         # Возвращаем ВСЕ товары
         # заказа обратно.

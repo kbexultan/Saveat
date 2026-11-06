@@ -29,11 +29,12 @@ mkdirSync(evidenceDir, { recursive: true });
 const { formatPickupDateWindow } = await import(
   pathToFileURL(join(repoDir, "frontend/lib/orders.ts")).href
 );
-const { SOLD_OUT_MESSAGE } = await import(
+const { SOLD_OUT_MESSAGE, CHECKOUT_NETWORK_ERROR_MESSAGE } = await import(
   pathToFileURL(join(repoDir, "frontend/lib/checkoutErrors.ts")).href
 );
 
 const results = [];
+const pages = [];
 function check(id, description, pass, actual) {
   results.push({ id, description, pass: Boolean(pass), actual });
   console.log(`${pass ? "PASS" : "FAIL"} ${id} ${description} :: ${JSON.stringify(actual)}`);
@@ -54,6 +55,7 @@ async function apiLogin(email) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password: PASSWORD }),
   });
+  if (!r.ok) throw new Error(`API login failed (${r.status})`);
   return (await r.json()).access_token;
 }
 
@@ -96,8 +98,17 @@ ws.addEventListener("message", (event) => {
 });
 function send(method, params = {}, sessionId) {
   const id = nextId++;
-  ws.send(JSON.stringify({ id, method, params, sessionId }));
-  return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`CDP command timed out: ${method}`));
+    }, 10000);
+    pending.set(id, {
+      resolve: (result) => { clearTimeout(timer); resolve(result); },
+      reject: (error) => { clearTimeout(timer); reject(error); },
+    });
+    ws.send(JSON.stringify({ id, method, params, sessionId }));
+  });
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -105,12 +116,20 @@ async function newPage() {
   const { browserContextId } = await send("Target.createBrowserContext");
   const { targetId } = await send("Target.createTarget", { url: "about:blank", browserContextId });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
-  const page = { sessionId, console: [], checkoutRequests: 0 };
+  const page = { sessionId, browserContextId, console: [], network: [], checkoutRequests: 0, loaderId: null };
+  pages.push(page);
   listeners.push((msg) => {
     if (msg.sessionId !== sessionId) return;
+    if (msg.method === "Page.frameNavigated" && !msg.params.frame.parentId) page.loaderId = msg.params.frame.loaderId;
     if (msg.method === "Runtime.consoleAPICalled") {
       page.console.push(msg.params.args.map((a) => a.value ?? a.description).join(" "));
     }
+    if (msg.method === "Runtime.exceptionThrown") page.console.push(msg.params.exceptionDetails);
+    if (msg.method === "Network.responseReceived") {
+      const { url, status } = msg.params.response;
+      if (url.startsWith(API) || status >= 400) page.network.push({ url, status });
+    }
+    if (msg.method === "Network.loadingFailed") page.network.push(msg.params);
     if (msg.method === "Network.requestWillBeSent") {
       const { url, method } = msg.params.request;
       if (url.endsWith("/orders/checkout") && method === "POST") page.checkoutRequests++;
@@ -138,7 +157,7 @@ async function waitFor(page, expression, label, timeout = 30000) {
   }
   let snapshot = "";
   try {
-    snapshot = await evaluate(page, "location.href + '\n' + document.body.innerText.slice(0, 1500)");
+    snapshot = await evaluate(page, "JSON.stringify({url: location.href, text: document.body.innerText.slice(0, 3000)})");
   } catch {}
   throw new Error(`Timed out waiting for: ${label}
 --- page ---
@@ -148,17 +167,25 @@ const bodyText = (page) => evaluate(page, "document.body.innerText");
 const waitText = (page, text, timeout) =>
   waitFor(page, `document.body.innerText.includes(${JSON.stringify(text)})`, text, timeout);
 async function goto(page, path) {
-  await send("Page.navigate", { url: WEB + path }, page.sessionId);
-  await waitFor(page, "document.readyState === 'complete'", `load ${path}`);
+  const { loaderId, errorText } = await send("Page.navigate", { url: WEB + path }, page.sessionId);
+  if (errorText) throw new Error(`Navigation to ${path}: ${errorText}`);
+  const deadline = Date.now() + 30000;
+  while (page.loaderId !== loaderId && Date.now() < deadline) await sleep(50);
+  if (page.loaderId !== loaderId) throw new Error(`Navigation did not commit: ${path}`);
+  await waitFor(page, `location.pathname === ${JSON.stringify(path)} && document.readyState === 'complete'`, `load ${path}`);
 }
 async function shot(page, name) {
-  await sleep(400);
   const { data } = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true }, page.sessionId);
   const file = join(evidenceDir, name);
   writeFileSync(file, Buffer.from(data, "base64"));
   return file;
 }
 async function clickButton(page, text, scopeText) {
+  await waitFor(page, `(() => {
+    const scope = ${scopeText ? `[...document.querySelectorAll("article")].find(a => a.innerText.includes(${JSON.stringify(scopeText)}))` : "document"};
+    return !!scope && [...scope.querySelectorAll('button')].some(b => !b.disabled &&
+      ((b.getAttribute('aria-label') ?? b.innerText).trim() === ${JSON.stringify(text)} || b.innerText.trim() === ${JSON.stringify(text)}));
+  })()`, `enabled button ${text}`);
   const ok = await evaluate(
     page,
     `(() => {
@@ -184,6 +211,38 @@ async function login(page, email) {
   }
   await evaluate(page, "document.querySelector('button[type=submit]').click()");
   await waitFor(page, "!!localStorage.getItem('access_token')", "token after login");
+  // Token storage precedes /auth/me and router.replace. Navigating earlier
+  // can abort that transition or reach the storefront before cart restore.
+  await waitFor(page, "location.pathname === '/' && !!document.querySelector('a[aria-label=\"Открыть профиль\"]')", "completed login redirect");
+}
+
+async function holdRequest(page, url, requestStage = "Request") {
+  let paused;
+  const listener = (msg) => {
+    if (msg.sessionId !== page.sessionId || msg.method !== "Fetch.requestPaused") return;
+    if (msg.params.request.method === "OPTIONS") {
+      void send("Fetch.continueRequest", { requestId: msg.params.requestId }, page.sessionId).catch(console.error);
+    } else {
+      paused = msg.params;
+    }
+  };
+  listeners.push(listener);
+  await send("Fetch.enable", { patterns: [{ urlPattern: url, requestStage }] }, page.sessionId);
+  return {
+    async wait() {
+      const deadline = Date.now() + 30000;
+      while (!paused && Date.now() < deadline) await sleep(50);
+      if (!paused) throw new Error(`Request never paused: ${url}`);
+      return paused;
+    },
+    async release(fail = false) {
+      const { requestId } = await this.wait();
+      await send(fail ? "Fetch.failRequest" : "Fetch.continueRequest",
+        fail ? { requestId, errorReason: "ConnectionClosed" } : { requestId }, page.sessionId);
+      await send("Fetch.disable", {}, page.sessionId);
+      listeners.splice(listeners.indexOf(listener), 1);
+    },
+  };
 }
 function storefrontCardText(page) {
   return evaluate(
@@ -199,17 +258,43 @@ try {
   const a = await newPage();
   await login(a, A);
 
+  // Keep auth restoration pending while the real storefront has rendered.
+  // A click here used to succeed, then be erased by late cart restoration.
+  const auth = await holdRequest(a, `${API}/auth/me`);
   await goto(a, "/");
   await waitText(a, "Test croissant");
+  await auth.wait();
+  check("CART-RESTORE", "cannot add before the authenticated cart has restored",
+    await evaluate(a, `[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Добавить в корзину')?.disabled`), null);
+  await evaluate(a, `[...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Добавить в корзину').click()`);
+  check("CART-RESTORE", "pending cart cannot report a successful addition",
+    !(await bodyText(a)).includes("Перейти в корзину"), null);
+  await auth.release();
   const cardBefore = await storefrontCardText(a);
   await shot(a, "us3-01-storefront-before-3-left.png");
 
   await clickButton(a, "Увеличить количество", "Test croissant");
   await clickButton(a, "Добавить в корзину", "Test croissant");
   await waitText(a, "Перейти в корзину");
-  await goto(a, "/cart");
+  await clickButton(a, "Перейти в корзину", "Test croissant");
   await waitText(a, "Подтвердить бронирование");
   await shot(a, "us3-02-cart.png");
+  await goto(a, "/cart");
+  await waitText(a, "Подтвердить бронирование");
+  check("CART-RESTORE", "cart survives a full page reload after adding", (await bodyText(a)).includes("Test croissant"), null);
+  // Drop the HTTP response only after the real backend committed the order.
+  const lostResponse = await holdRequest(a, `${API}/orders/checkout`, "Response");
+  await clickButton(a, "Подтвердить бронирование");
+  const committed = await lostResponse.wait();
+  check("CHECKOUT-RETRY", "first attempt commits before the response is lost", committed.responseStatusCode === 201, committed.responseStatusCode);
+  check("CHECKOUT-RETRY", "order is in PostgreSQL before losing the response", db("state").orders === 1, null);
+  const savedAttempt = await evaluate(a, "sessionStorage.getItem('saveat_checkout_attempt')");
+  await lostResponse.release(true);
+  await waitText(a, CHECKOUT_NETWORK_ERROR_MESSAGE);
+  await goto(a, "/cart");
+  await waitText(a, "Подтвердить бронирование");
+  check("CHECKOUT-RETRY", "reload keeps the same retry key and cart",
+    await evaluate(a, `sessionStorage.getItem('saveat_checkout_attempt') === ${JSON.stringify(savedAttempt)} && document.body.innerText.includes('Test croissant')`), null);
   await clickButton(a, "Подтвердить бронирование");
   await waitFor(a, "/^\\/orders\\/[0-9a-f-]{36}$/.test(location.pathname)", "confirmation URL");
   await waitText(a, "Код получения");
@@ -227,6 +312,7 @@ try {
   check("US3-AC1", "confirmation page shows bakery name", confirmation.includes(order.business_name), order.business_name);
 
   state = db("state");
+  check("CHECKOUT-RETRY", "retry creates no duplicate order or stock deduction", state.orders === 1 && state.quantity_remaining === 1, state);
   check("US3-AC2", "database quantity decreased 3 -> 1 after booking 2", state.quantity_remaining === 1, state);
 
   await goto(a, "/");
@@ -247,6 +333,23 @@ try {
   check("US3-AC2", "order appears in customer's history", history.includes(order.pickup_code), order.pickup_code);
   check("US3-AC2", "history shows status 'Забронирован'", history.includes("Забронирован"), "Забронирован");
 
+  const staff = await newPage();
+  await login(staff, "owner@saveat-test.example.com");
+  await goto(staff, "/business/pickup");
+  await waitFor(staff, "!!document.querySelector('input')", "pickup lookup form");
+  await evaluate(staff, "document.querySelector('input').focus()");
+  await send("Input.insertText", { text: order.pickup_code }, staff.sessionId);
+  await clickButton(staff, "Найти");
+  await waitText(staff, order.pickup_code);
+  await clickButton(staff, "Выдать заказ");
+  await waitText(staff, "Заказ успешно выдан.");
+  await shot(staff, "pickup-01-business-confirmation.png");
+  await goto(a, "/orders");
+  await waitText(a, order.pickup_code);
+  check("PICKUP", "bakery confirms the code and customer history shows collection", (await bodyText(a)).includes("Получен"), null);
+  await send("Target.disposeBrowserContext", { browserContextId: staff.browserContextId });
+  await send("Target.disposeBrowserContext", { browserContextId: a.browserContextId });
+
   // ================= ST4 / US5 (web part) =================
   state = db("seed 1");
   console.log("reseeded", state);
@@ -256,7 +359,7 @@ try {
   await waitText(b, "Test croissant");
   await clickButton(b, "Добавить в корзину", "Test croissant");
   await waitText(b, "Перейти в корзину");
-  await goto(b, "/cart");
+  await clickButton(b, "Перейти в корзину", "Test croissant");
   await waitText(b, "Подтвердить бронирование");
 
   // Customer A takes the last item first (through the API).
@@ -267,6 +370,7 @@ try {
     body: JSON.stringify({ items: [{ offer_id: "5a7ea700-0000-4000-8000-0000000000f1", quantity: 1 }] }),
   });
   check("US5-AC1", "customer A booking succeeds", winner.status === 201, winner.status);
+  const winningOrder = await winner.json();
 
   // Customer B presses the button twice in the same tick.
   b.checkoutRequests = 0;
@@ -302,8 +406,7 @@ try {
   check("US5-AC2", "database quantity is 0 and never negative", state.quantity_remaining === 0 && state.min_quantity >= 0, state);
 
   await goto(b, "/");
-  await waitFor(b, "document.body.innerText.length > 0 && !document.body.innerText.includes('Загруж')", "storefront loaded", 15000);
-  await sleep(1500);
+  await waitFor(b, "!!document.querySelector('a[aria-label=\"Открыть профиль\"]') && document.body.innerText.includes('SAVEAT')", "storefront loaded", 15000);
   const storefrontAfter = await storefrontCardText(b);
   await shot(b, "us5-02-storefront-after-sold-out.png");
   check("US5-AC2", "storefront no longer offers the sold-out item (matches 0 in DB)", storefrontAfter === null, storefrontAfter);
@@ -314,9 +417,34 @@ try {
   await waitText(b, "Корзина пустая");
   check("ACCOUNT-ISOLATION", "new account does not see previous customer's cart",
     !(await evaluate(b, "document.body.innerText")).includes("Test croissant"), null);
+
+  await goto(b, `/orders/${winningOrder.id}`);
+  await waitText(b, "Отменить заказ");
+  db("start-pickup");
+  // The open page still has its earlier snapshot; the API must reject it.
+  await clickButton(b, "Отменить заказ");
+  await waitText(b, "Время выдачи уже началось. Отменить заказ нельзя.");
+  await shot(b, "us8-01-cancellation-rejected.png");
+  check("US8-AC2", "late cancellation shows a clear Russian error and keeps stock reserved",
+    db("state").quantity_remaining === 0, null);
+  await goto(b, `/orders/${winningOrder.id}`);
+  await waitText(b, winningOrder.pickup_code);
+  check("US8-AC2", "confirmation hides cancellation after pickup starts",
+    !(await bodyText(b)).includes("Отменить заказ"), null);
+  await goto(b, "/orders");
+  await waitText(b, winningOrder.pickup_code);
+  check("US8-AC2", "history hides cancellation after pickup starts",
+    !(await bodyText(b)).includes("Отменить заказ"), null);
 } catch (error) {
   console.error("RUN ERROR", error);
   results.push({ id: "RUN", description: String(error), pass: false });
+  for (const [index, page] of pages.entries()) {
+    await shot(page, `failure-page-${index}.png`).catch(() => {});
+    writeFileSync(join(evidenceDir, `failure-page-${index}.json`), JSON.stringify({
+      console: page.console, network: page.network,
+      snapshot: await evaluate(page, "({url: location.href, text: document.body.innerText})").catch(String),
+    }, null, 2));
+  }
 } finally {
   writeFileSync(join(evidenceDir, "browser-results.json"), JSON.stringify(results, null, 2));
   ws.close();

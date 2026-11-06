@@ -9,6 +9,9 @@ import {
   useRouter,
 } from "next/navigation";
 
+import { canCancelOrder } from "@/lib/cancellation";
+import { useNow } from "@/hooks/useNow";
+
 import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -51,6 +54,7 @@ function formatDate(
 
 
 export default function OrdersPage() {
+  const now = useNow();
   const router = useRouter();
 
   const {
@@ -597,8 +601,7 @@ export default function OrdersPage() {
                             Открыть заказ
                           </button>
 
-                          {order.status ===
-                            "reserved" && (
+                          {canCancelOrder(order, now) && (
                             <button
                               type="button"
                               onClick={() =>

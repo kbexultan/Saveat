@@ -39,6 +39,11 @@ jobs:
           cat /tmp/saveat-api.log /tmp/saveat-web.log
           exit 1
       - run: node backend/tests/browser/run_acceptance.mjs "$GITHUB_WORKSPACE" backend/tests/acceptance-evidence/ci
+      - name: Collect browser server logs
+        if: always()
+        run: |
+          mkdir -p backend/tests/acceptance-evidence/ci
+          cp /tmp/saveat-{api,web}.log backend/tests/acceptance-evidence/ci/ 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -65,6 +70,10 @@ jobs:
           cache-dependency-path: ${{ matrix.directory }}/package-lock.json
       - run: npm ci
       - run: npm test
+      - run: npx expo install --check
+        if: matrix.directory == 'mobile'
+      - run: npm run test:fingerprint
+        if: matrix.directory == 'mobile'
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm run build

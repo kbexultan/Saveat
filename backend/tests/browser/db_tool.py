@@ -44,6 +44,14 @@ def main():
             )
             db.commit()
 
+    elif command == "start-pickup":
+        # Only guarded test orders. Exercise US8 without wall-clock sleeps.
+        with engine.begin() as connection:
+            connection.execute(text(
+                "UPDATE orders SET pickup_start = clock_timestamp() - interval '1 second' "
+                "WHERE id IN (SELECT order_id FROM order_items WHERE offer_id = :id)"
+            ), {"id": LAST_ITEM_OFFER_ID})
+
     with engine.connect() as connection:
         row = connection.execute(
             text(

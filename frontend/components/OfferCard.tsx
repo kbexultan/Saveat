@@ -78,7 +78,7 @@ function getEmoji(category: string | null) {
 export default function OfferCard({ offer }: { offer: Offer }) {
   const router = useRouter();
 
-  const { addItem } = useCart();
+  const { addItem, ready: cartReady } = useCart();
 
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
@@ -258,7 +258,7 @@ export default function OfferCard({ offer }: { offer: Offer }) {
           <button
             type="button"
             onClick={handleAddToCart}
-            disabled={soldOut}
+            disabled={soldOut || !cartReady}
             className="min-h-13 w-full rounded-chip bg-primary py-3.5 text-body font-bold text-white shadow-primary transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:bg-primary-soft disabled:shadow-none"
           >
             {soldOut ? "Распродано" : "Добавить в корзину"}

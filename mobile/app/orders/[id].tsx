@@ -15,7 +15,9 @@ import {
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
-import { api, toErrorMessage } from "@/lib/api";
+import { api, ApiError, toErrorMessage } from "@/lib/api";
+import { canCancelOrder, PICKUP_STARTED_MESSAGE } from "@/lib/cancellation";
+import { useNow } from "@/hooks/useNow";
 import {
   formatDateTime,
   formatPickupWindow,
@@ -38,6 +40,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function OrderDetailsScreen() {
+  const now = useNow();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -89,7 +92,10 @@ export default function OrderDetailsScreen() {
               .cancel(order.id)
               .then(setData)
               .catch((caught: unknown) => {
-                setActionError(toErrorMessage(caught));
+                setActionError(caught instanceof ApiError && caught.status === 409
+                  ? (caught.message === "Order cannot be cancelled once pickup has started"
+                    ? PICKUP_STARTED_MESSAGE : "Этот заказ уже нельзя отменить.")
+                  : toErrorMessage(caught));
               })
               .finally(() => setCancelling(false));
           },
@@ -140,7 +146,7 @@ export default function OrderDetailsScreen() {
   const isPickedUp = order.status === "picked_up";
   const isCancelled = order.status === "cancelled";
 
-  const canCancel = ["reserved", "paid", "ready"].includes(order.status);
+  const canCancel = canCancelOrder(order, now);
 
   const branchCoordinates =
     branch && branch.latitude !== null && branch.longitude !== null

@@ -184,3 +184,21 @@ node backend/tests/browser/run_acceptance.mjs "$(pwd)" backend/tests/acceptance-
 ```
 
 Set `CHROME_PATH` if Chrome is not installed in its default location.
+
+### Follow-up stabilization — 2026-11-07
+
+`test_cancellation_window.py` covers US8 before, exactly at and after
+`pickup_start`, repeated cancellation, collection, inventory/notification/outbox
+integrity and real PostgreSQL lock contention between cancellation and pickup.
+The original US8 story in `IT_PM_A6_A7_Saveat_Report.docx` allows cancellation
+only before pickup starts; the explicit AC2 boundary is recorded in the
+2026-11-07 task and follow-up audit. Cancellation uses `clock_timestamp()`
+after acquiring locks, so time spent waiting cannot bypass the cutoff.
+
+The browser suite preserves all 19 previous checks and adds controlled auth
+restoration, a lost checkout response **after commit**, retry after reload,
+bakery pickup and US8 UI checks. It waits for navigation commit, login redirect
+and enabled controls. No fixed sleeps are used to decide application readiness.
+Failure artifacts include screenshots, page text, console and request statuses;
+CI also uploads guarded API and Next logs. Run browser and Pytest sequentially:
+both deliberately reset the same isolated test database.

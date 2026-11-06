@@ -12,6 +12,7 @@ from app.models.order import Order
 from app.models.offer import Offer
 from app.models.notification import Notification
 from app.approve_business import approve_business
+from tests.seed import TEST_PASSWORD
 
 
 def reserve(scenario, client, auth_headers):
@@ -39,6 +40,28 @@ def test_complete_customer_to_bakery_journey(scenario, db, client, auth_headers)
     customer = client.get(f"/orders/{order['id']}", headers=auth_headers(scenario.customer_a_id))
     assert customer.json()["status"] == "picked_up"
     assert client.post(url(scenario, order), headers=auth_headers(scenario.owner_id)).status_code == 409
+
+
+def test_newly_registered_customer_completes_pickup(scenario, client, auth_headers):
+    registered = client.post("/auth/register", json={
+        "full_name": "New pilot customer", "email": "new.customer@example.com",
+        "phone": "+77015550991", "password": TEST_PASSWORD,
+    })
+    assert registered.status_code == 201, registered.text
+    login = client.post("/auth/login", json={"email": "new.customer@example.com", "password": TEST_PASSWORD})
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    offers = client.get("/offers/public").json()
+    assert any(offer["id"] == str(scenario.offer_id) for offer in offers)
+    response = client.post("/orders/checkout", headers=headers, json={
+        "items": [{"offer_id": str(scenario.offer_id), "quantity": 1}], "idempotency_key": "new-customer-journey",
+    })
+    assert response.status_code == 201
+    order = response.json()
+    assert order["pickup_code"] and order["address"] and order["pickup_start"]
+    assert client.post(url(scenario, order), headers=auth_headers(scenario.owner_id)).status_code == 200
+    history = client.get("/orders", headers=headers).json()
+    assert [(row["id"], row["status"]) for row in history] == [(order["id"], "picked_up")]
 
 
 def test_invalid_cancelled_and_unauthorized_pickups(scenario, client, auth_headers):
@@ -100,3 +123,17 @@ def test_approval_checks_id_and_name(scenario, db):
     assert business.status == "active"
     with pytest.raises(ValueError):
         approve_business(db, business.id, business.name)
+
+
+def test_pending_bakery_cannot_publish_or_expose_offers(scenario, db, client, auth_headers):
+    business = db.get(Business, scenario.business_id)
+    business.status = "pending"
+    db.commit()
+    offer = db.get(Offer, scenario.offer_id)
+    response = client.post("/offers", headers=auth_headers(scenario.owner_id), json={
+        "branch_id": str(scenario.branch_id), "product_id": str(offer.product_id),
+        "title": "Pending offer", "original_price": "1000", "sale_price": "500",
+        "quantity_total": 1, "pickup_start": offer.pickup_start.isoformat(), "pickup_end": offer.pickup_end.isoformat(),
+    })
+    assert response.status_code == 403, response.text
+    assert client.get("/offers/public").json() == []

@@ -146,6 +146,8 @@ export function describeOrderListError(status: number): string {
 export function describeCancelError(status: number, detail: unknown): string {
   if (status === 409) {
     switch (detail) {
+      case "Order cannot be cancelled once pickup has started":
+        return "Время выдачи уже началось. Отменить заказ нельзя.";
       case "Order is already cancelled":
         return "Заказ уже отменён.";
 

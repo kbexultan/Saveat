@@ -55,6 +55,7 @@ export default function CartPage() {
 
     const {
         items,
+        ready: cartReady,
         updateQuantity,
         removeItem,
         clearCart,
@@ -330,7 +331,8 @@ export default function CartPage() {
                 </div>
 
                 {/* Пустая корзина */}
-                {items.length === 0 && (
+                {!cartReady && <p role="status">Загружаем корзину…</p>}
+                {cartReady && items.length === 0 && (
                     <div className="saveat-surface rounded-[28px] border border-[#DFC2AA] bg-[#FFFDF9] px-6 py-14 text-center">
                         <div className="text-5xl">
                             🛒
