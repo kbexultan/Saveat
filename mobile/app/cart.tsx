@@ -145,7 +145,7 @@ function CartRow({
 
       <View className="flex-row items-center justify-between gap-3">
         <Text className="text-xs text-muted">
-          {maxQuantity > 0 ? `Осталось ${maxQuantity} шт.` : "Нет в наличии"}
+          {maxQuantity > 0 ? `Осталось ${Math.max(0, offer.quantity_remaining)} шт.` : "Нет в наличии"}
         </Text>
 
         <Pressable

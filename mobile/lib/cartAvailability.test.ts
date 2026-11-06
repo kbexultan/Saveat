@@ -36,6 +36,12 @@ test("fresh prices and quantity limits replace snapshots", () => {
 test("identical refresh retains state identity", () => {
   assert.equal(applyLiveAvailability(cart, [{ ...offer }]), cart);
 });
+test("stock above the per-order limit stays accurate while quantity is capped at 20", () => {
+  const updated = applyLiveAvailability([{ offer, quantity: 20 }], [{ ...offer, quantity_remaining: 30 }]);
+  assert.equal(updated[0].offer.quantity_remaining, 30);
+  assert.equal(updated[0].quantity, 20);
+  assert.equal(maxQuantityFor(updated[0].offer), 20);
+});
 test("checkout retries reuse the key across navigation; edits and account switches replace it", () => {
   const items = [{ offer_id: "one", quantity: 1 }];
   const attempt = checkoutAttempt(null, "A", items, () => "first");

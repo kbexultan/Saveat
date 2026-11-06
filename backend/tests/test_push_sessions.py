@@ -150,3 +150,40 @@ def test_concurrent_workers_claim_delivery_once(scenario, db, client, auth_heade
         finally:
             release.set()
         assert first.result(timeout=5) == 1
+
+
+def test_web_sender_restricts_hosts_and_redirects(monkeypatch):
+    import pywebpush
+    sent = []
+    monkeypatch.setattr(push, "web_push_enabled", lambda: True)
+    monkeypatch.setattr(pywebpush, "webpush", lambda **kwargs: sent.append(kwargs))
+    subscription = PushSubscription(endpoint="https://fcm.googleapis.com/test", platform="web", p256dh="key", auth="auth")
+    assert push._send_web_push(subscription, {"body": "Generic"}) is True
+    assert sent[0]["requests_session"].max_redirects == 0
+    subscription.endpoint = "https://127.0.0.1/private"
+    assert push._send_web_push(subscription, {}) is False
+    assert len(sent) == 1
+
+
+def test_web_gone_subscription_is_permanent(monkeypatch):
+    from types import SimpleNamespace
+    import pywebpush
+    monkeypatch.setattr(push, "web_push_enabled", lambda: True)
+    def gone(**kwargs):
+        raise pywebpush.WebPushException("Gone", response=SimpleNamespace(status_code=410))
+    monkeypatch.setattr(pywebpush, "webpush", gone)
+    subscription = PushSubscription(endpoint="https://fcm.googleapis.com/test", platform="web", p256dh="key", auth="auth")
+    assert push._send_web_push(subscription, {}) is False
+
+
+def test_expo_ticket_and_temporary_failure_handling(monkeypatch):
+    import httpx
+    payload = {"title": "SAVEAT", "body": "Generic", "notification_id": "test"}
+    def respond(status, data):
+        monkeypatch.setattr(httpx, "post", lambda *args, **kwargs: httpx.Response(status, json=data))
+    respond(200, {"data": [{"status": "ok", "id": "ticket-id"}]})
+    assert push._send_expo_push([TOKEN], payload) is True
+    respond(200, {"data": [{"status": "error", "details": {"error": "DeviceNotRegistered"}}]})
+    assert push._send_expo_push([TOKEN], payload) is False
+    respond(503, {})
+    assert push._send_expo_push([TOKEN], payload) is None
