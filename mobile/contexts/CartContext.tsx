@@ -73,6 +73,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedOwner, setLoadedOwner] = useState<string | null | undefined>(undefined);
 
   // undefined — корзину ещё ни разу не читали в этой сессии.
   const ownerRef = useRef<string | null | undefined>(undefined);
@@ -96,8 +97,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    ownerRef.current = userId;
-
     let active = true;
 
     async function restore() {
@@ -108,6 +107,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!active) {
         return;
       }
+      ownerRef.current = userId;
 
       // Старый формат — просто массив позиций, без владельца.
       const stored: StoredCart = Array.isArray(saved)
@@ -120,6 +120,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         stored.ownerId === null || stored.ownerId === userId;
 
       setItems(mine ? stored.items.filter(isUsableItem) : []);
+      setLoadedOwner(userId);
       setLoading(false);
     }
 
@@ -131,7 +132,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [authLoading, userId]);
 
   useEffect(() => {
-    if (loading) {
+    if (loading || authLoading || loadedOwner !== userId) {
       return;
     }
 
@@ -146,7 +147,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ownerId: userId,
       items,
     });
-  }, [items, loading, userId]);
+  }, [items, loading, userId, authLoading, loadedOwner]);
 
   const addItem = useCallback(
     (offer: PublicOffer, quantity: number): CartActionResult => {
@@ -296,10 +297,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartContextValue>(
     () => ({
-      items,
-      loading,
-      totalItems,
-      totalPrice,
+      items: loadedOwner === userId ? items : [],
+      loading: loading || loadedOwner !== userId,
+      totalItems: loadedOwner === userId ? totalItems : 0,
+      totalPrice: loadedOwner === userId ? totalPrice : 0,
       branchId: first?.offer.branch_id ?? null,
       branchName: first?.offer.branch_name ?? null,
       businessName: first?.offer.business_name ?? null,
@@ -325,6 +326,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeItem,
       clearCart,
       syncWithOffers,
+      loadedOwner,
+      userId,
     ],
   );
 

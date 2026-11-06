@@ -148,7 +148,7 @@ export default function BusinessDashboardPage() {
   }, [authLoading, businessLoading, user, memberships.length, router]);
 
   useEffect(() => {
-    if (!selectedMembership) {
+    if (!selectedMembership || selectedMembership.business.status !== "active") {
       return;
     }
 
@@ -354,6 +354,14 @@ export default function BusinessDashboardPage() {
   }
 
   const business = selectedMembership.business;
+
+  if (business.status !== "active") {
+    return <main className="min-h-screen bg-sand p-8 text-ink">
+      <h1 className="text-2xl font-bold">Заведение ожидает проверки</h1>
+      <p className="mt-4">После проверки SAVEAT откроет кабинет и публикацию предложений.</p>
+      <button className="mt-6 underline" onClick={() => window.location.reload()}>Проверить статус</button>
+    </main>;
+  }
   const greetingName = user?.full_name?.split(" ")[0] || business.name;
   const canManage = selectedMembership.role !== "staff";
 

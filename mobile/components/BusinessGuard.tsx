@@ -93,6 +93,14 @@ export function BusinessGuard({
     );
   }
 
+  if (selectedMembership.business.status !== "active") {
+    return <Screen edges={["left", "right", "bottom"]}>
+      <EmptyState emoji="🏪" title="Заведение ожидает проверки"
+        description="После проверки SAVEAT откроет кабинет и публикацию предложений."
+        actionLabel="Проверить статус" onAction={() => void refreshBusiness()} />
+    </Screen>;
+  }
+
   if (requireManage && !canManage) {
     return (
       <Screen edges={["left", "right", "bottom"]}>

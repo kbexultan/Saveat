@@ -106,6 +106,8 @@ type ErrorDetailItem = {
 };
 
 function extractErrorMessage(payload: unknown, status: number): string {
+  if (status >= 500) return "Сервер временно недоступен. Попробуйте позже.";
+  if (status === 429) return "Слишком много попыток. Попробуйте позже.";
   if (typeof payload === "string" && payload.trim()) {
     return payload.trim();
   }
@@ -139,6 +141,7 @@ function extractErrorMessage(payload: unknown, status: number): string {
 }
 
 type RequestOptions = {
+  sessionToken?: string;
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   /** Подставить Bearer-токен и разлогинить при 401. */
@@ -150,7 +153,8 @@ async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { method = "GET", body, auth = false, signal } = options;
+  const { method = "GET", body, auth = false, signal, sessionToken } = options;
+  let requestToken: string | null = null;
 
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -161,7 +165,8 @@ async function request<T>(
   }
 
   if (auth) {
-    const token = await getToken();
+    const token = sessionToken ?? await getToken();
+    requestToken = token;
 
     if (!token) {
       unauthorizedHandler?.();
@@ -173,16 +178,21 @@ async function request<T>(
   }
 
   let response: Response;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  const timeout = setTimeout(abort, 15000);
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
-      signal,
+      signal: controller.signal,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (signal?.aborted) {
       throw error;
     }
 
@@ -190,6 +200,9 @@ async function request<T>(
       `Нет связи с сервером SAVEAT (${API_BASE_URL}). ` +
         "Проверьте подключение и адрес API.",
     );
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", abort);
   }
 
   if (response.status === 204) {
@@ -209,7 +222,7 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    if (response.status === 401 && auth) {
+    if (response.status === 401 && auth && requestToken === await getToken()) {
       // Токен протух или отозван — чистим сессию.
       await clearToken();
       unauthorizedHandler?.();
@@ -271,6 +284,9 @@ export const api = {
 
     me(signal?: AbortSignal) {
       return request<User>("/auth/me", { auth: true, signal });
+    },
+    logout(sessionToken: string) {
+      return request<void>("/auth/logout", { method: "POST", auth: true, sessionToken });
     },
   },
 
@@ -507,8 +523,9 @@ export const api = {
 
   push: {
     /** Регистрирует Expo push-токен как подписку устройства. */
-    subscribe(expoPushToken: string) {
+    subscribe(expoPushToken: string, sessionToken?: string, signal?: AbortSignal) {
       return request<void>("/push/subscribe", {
+        sessionToken, signal,
         method: "POST",
         auth: true,
         body: {
@@ -518,8 +535,9 @@ export const api = {
       });
     },
 
-    unsubscribe(expoPushToken: string) {
+    unsubscribe(expoPushToken: string, sessionToken?: string) {
       return request<void>("/push/unsubscribe", {
+        sessionToken,
         method: "POST",
         auth: true,
         body: { endpoint: expoPushToken },

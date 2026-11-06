@@ -11,7 +11,8 @@ import {
 
 import { api, setUnauthorizedHandler } from "@/lib/api";
 import { registerForPush } from "@/lib/push";
-import { clearToken, setToken } from "@/lib/storage";
+import { clearToken, getToken, setToken } from "@/lib/storage";
+import * as Notifications from "expo-notifications";
 import type { LoginPayload, RegisterPayload, User } from "@/types/api";
 
 type AuthContextValue = {
@@ -105,30 +106,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
+    const controller = new AbortController();
 
-    void registerForPush().then((result) => {
+    void registerForPush(controller.signal).then((result) => {
       if (!cancelled && result.reason) {
         console.info("Push недоступен:", result.reason);
       }
-    });
+    }).catch(() => { /* Notification permissions must never break login. */ });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [user]);
 
   const logout = useCallback(async () => {
-    await clearToken();
-
-    if (mountedRef.current) {
-      setUser(null);
+    const token = await getToken();
+    // Clear the UI immediately; server revocation also removes this session's devices.
+    setUser(null);
+    try {
+      if (token) await api.auth.logout(token);
+    } catch {
+      // Offline logout cannot recall queued OS banners; push payloads contain no private data.
+    } finally {
+      if (token === await getToken()) await clearToken();
+      await Notifications.dismissAllNotificationsAsync().catch(() => undefined);
     }
   }, []);
 
   const refreshUser = useCallback(async () => {
+    const token = await getToken();
     const currentUser = await api.auth.me();
 
-    if (mountedRef.current) {
+    if (mountedRef.current && token === await getToken()) {
       setUser(currentUser);
     }
   }, []);

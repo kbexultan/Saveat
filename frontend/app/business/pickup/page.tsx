@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { pickupErrorMessage } from "@/lib/pickupErrors";
 
 import {
   FormEvent,
   useEffect,
   useState,
+  useRef,
 } from "react";
 
 import {
@@ -117,6 +119,7 @@ function normalizeCode(
 
 
 export default function BusinessPickupPage() {
+  const confirmingRef = useRef(false);
   const router =
     useRouter();
 
@@ -306,9 +309,7 @@ export default function BusinessPickupPage() {
 
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Произошла ошибка.",
+        pickupErrorMessage(err instanceof Error ? err.message : undefined),
       );
     } finally {
       setSearching(false);
@@ -317,6 +318,7 @@ export default function BusinessPickupPage() {
 
 
   async function confirmPickup() {
+    if (confirmingRef.current) return;
     if (
       !selectedMembership ||
       !order
@@ -339,6 +341,7 @@ export default function BusinessPickupPage() {
 
     try {
       setConfirming(true);
+      confirmingRef.current = true;
       setError("");
       setSuccess("");
 
@@ -410,12 +413,11 @@ export default function BusinessPickupPage() {
 
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Произошла ошибка.",
+        pickupErrorMessage(err instanceof Error ? err.message : undefined),
       );
     } finally {
       setConfirming(false);
+      confirmingRef.current = false;
     }
   }
 
