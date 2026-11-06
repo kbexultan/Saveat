@@ -343,6 +343,7 @@ try {
   await waitText(staff, order.pickup_code);
   await clickButton(staff, "Выдать заказ");
   await waitText(staff, "Заказ успешно выдан.");
+  await shot(staff, "pickup-01-business-confirmation.png");
   await goto(a, "/orders");
   await waitText(a, order.pickup_code);
   check("PICKUP", "bakery confirms the code and customer history shows collection", (await bodyText(a)).includes("Получен"), null);
@@ -423,6 +424,7 @@ try {
   // The open page still has its earlier snapshot; the API must reject it.
   await clickButton(b, "Отменить заказ");
   await waitText(b, "Время выдачи уже началось. Отменить заказ нельзя.");
+  await shot(b, "us8-01-cancellation-rejected.png");
   check("US8-AC2", "late cancellation shows a clear Russian error and keeps stock reserved",
     db("state").quantity_remaining === 0, null);
   await goto(b, `/orders/${winningOrder.id}`);
