@@ -49,6 +49,8 @@ BACKEND_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 # Test-only secrets. They never leave the test process.
 TEST_ENVIRONMENT = {
+    "PUSH_WORKER_ENABLED": "false",
+    "BUSINESS_REGISTRATION_REQUIRES_APPROVAL": "true",
     "JWT_SECRET_KEY": "saveat-test-only-jwt-secret-not-for-production",
     "JWT_ALGORITHM": "HS256",
     # Empty VAPID keys switch web push off, so tests can never notify

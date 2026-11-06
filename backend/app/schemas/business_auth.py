@@ -58,7 +58,7 @@ class BusinessLoginRequest(
     BaseModel
 ):
     email: EmailStr
-    password: str
+    password: str = Field(max_length=1024)
 
 
 class BusinessMembershipResponse(

@@ -2,6 +2,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
     status,
 )
 from sqlalchemy import func, select
@@ -9,6 +10,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
+from app.config import settings
+from app.rate_limit import limit_auth
 from app.database import get_db
 
 from app.models.business import Business
@@ -93,8 +96,10 @@ def get_user_business_memberships(
 )
 def register_business_account(
     data: BusinessRegisterRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    limit_auth(request, str(data.email))
     email = (
         str(data.email)
         .strip()
@@ -186,7 +191,7 @@ def register_business_account(
             logo_url=(
                 data.business_logo_url
             ),
-            status="active",
+            status="pending" if settings.business_registration_requires_approval else "active",
         )
 
         db.add(business)
@@ -257,8 +262,10 @@ def register_business_account(
 )
 def login_business_account(
     data: BusinessLoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    limit_auth(request, str(data.email))
     email = (
         str(data.email)
         .strip()
@@ -278,10 +285,9 @@ def login_business_account(
     )
 
     if (
-        user is None
-        or not verify_password(
+        not verify_password(
             data.password,
-            user.password_hash,
+            user.password_hash if user is not None else None,
         )
     ):
         raise HTTPException(

@@ -29,6 +29,10 @@ class PushSubscription(Base):
 
     __tablename__ = "push_subscriptions"
 
+    # Legacy unbound subscriptions are deliberately inactive until the next login.
+    session_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,

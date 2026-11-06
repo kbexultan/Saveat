@@ -52,6 +52,7 @@ def create_notification(
 
     queue_push(
         db,
+        notification_id=notification.id,
         user_id=user_id,
         title=title,
         body=body,

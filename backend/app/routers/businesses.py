@@ -11,6 +11,7 @@ from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
+from app.config import settings
 from app.database import get_db
 
 from app.models.branch import Branch
@@ -51,7 +52,7 @@ def create_business(
             name=data.name.strip(),
             description=data.description,
             logo_url=data.logo_url,
-            status="active",
+            status="pending" if settings.business_registration_requires_approval else "active",
         )
 
         db.add(business)
