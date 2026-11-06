@@ -26,6 +26,7 @@ type AddItemResult = {
 type CartContextType = {
   items: CartItem[];
   totalItems: number;
+  ready: boolean;
 
   addItem: (
     offer: Offer,
@@ -124,6 +125,7 @@ export function CartProvider({
 
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id ?? null;
+  const ready = !authLoading && loadedOwner === userId;
 
   // undefined — корзину ещё ни разу не читали для этой сессии.
   const ownerId = useRef<
@@ -175,6 +177,9 @@ export function CartProvider({
     offer: Offer,
     quantity: number,
   ): AddItemResult {
+    if (!ready) {
+      return { success: false, message: "Корзина загружается. Попробуйте ещё раз." };
+    }
     if (quantity < 1) {
       return {
         success: false,
@@ -337,8 +342,9 @@ export function CartProvider({
   return (
     <CartContext.Provider
       value={{
-        items: loadedOwner === userId ? items : [],
-        totalItems: loadedOwner === userId ? totalItems : 0,
+        items: ready ? items : [],
+        totalItems: ready ? totalItems : 0,
+        ready,
         addItem,
         updateQuantity,
         removeItem,
