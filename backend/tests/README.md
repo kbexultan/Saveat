@@ -4,6 +4,25 @@ Backend tests run against a throwaway PostgreSQL in Docker, never against
 Supabase. Web and mobile have small `node:test` suites for checkout error
 messages and order helpers.
 
+## MVP stabilization checks (2026-11-06)
+
+New regressions cover checkout idempotency (including eight concurrent retries),
+session revocation, shared-device push ownership, SSRF rejection, durable outbox
+rollback/retry/concurrent workers, pending business approval, pickup permissions,
+nullable PATCH validation and reversible migrations preserving orders. The push
+worker is explicitly disabled by `tests/safety.py` except in its controlled
+lifecycle test; provider calls in that test are replaced with a local stub.
+
+Mobile cart helpers now cover an empty storefront, unavailable/expired offers,
+live prices, the per-order limit and persisted retry identity. Actual iOS/Android
+device tests remain **NOT TESTED**. See [pilot rollout and manual QA](../../PILOT_DEPLOYMENT.md)
+and [the audit report](../../SAVEAT_CODE_AUDIT_AND_FIX_REPORT.md).
+
+The GitHub Actions workflow runs backend, browser, client tests, TypeScript,
+lint and the web build without production credentials. Its remote run has not
+been executed in this local session. The browser script now exits nonzero when
+any acceptance check fails and also checks cart isolation after an account switch.
+
 ## Quick start
 
 From the repository root:
