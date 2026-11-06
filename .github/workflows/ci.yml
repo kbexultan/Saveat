@@ -70,6 +70,10 @@ jobs:
           cache-dependency-path: ${{ matrix.directory }}/package-lock.json
       - run: npm ci
       - run: npm test
+      - run: npx expo install --check
+        if: matrix.directory == 'mobile'
+      - run: npm run test:fingerprint
+        if: matrix.directory == 'mobile'
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm run build

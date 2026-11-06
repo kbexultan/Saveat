@@ -45,7 +45,14 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "test": "node --test \"lib/**/*.test.ts\""
+    "test": "node --test \"lib/**/*.test.ts\"",
+    "test:fingerprint": "node --test tests/fingerprint-compat.test.cjs"
+  },
+  "overrides": {
+    "@expo/fingerprint": {
+      "glob": "14.0.4",
+      "minimatch": "11.0.5"
+    }
   },
   "private": true
 }
