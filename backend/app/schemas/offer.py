@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from app.schemas.patch import PatchModel
 
 from typing import Literal
 
@@ -37,7 +38,7 @@ class OfferCreate(BaseModel):
 
     type: str = "product"
 
-    title: str
+    title: str = Field(min_length=1, max_length=150)
     description: str | None = None
 
     original_price: Decimal
@@ -141,7 +142,8 @@ class OfferPublicResponse(BaseModel):
     business_id: UUID
     business_name: str
 
-class OfferUpdate(BaseModel):
+class OfferUpdate(PatchModel):
+    non_nullable_fields = {"title", "original_price", "sale_price", "quantity_total", "pickup_start", "pickup_end", "status"}
     # PATCH: меняем только
     # присланные поля.
     #
@@ -149,7 +151,7 @@ class OfferUpdate(BaseModel):
     # после создания:
     # branch_id, product_id, type.
     # Они определяют, чей это offer.
-    title: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=150)
     description: str | None = None
 
     original_price: Decimal | None = Field(

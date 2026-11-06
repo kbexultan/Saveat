@@ -8,8 +8,8 @@
 // Needs: test DB up, `uv run python -m tests.serve` on :8011 and
 // `NEXT_PUBLIC_API_URL=http://127.0.0.1:8011 npx next dev -p 3001`.
 // CHROME_PATH overrides the Chrome executable.
-import { execSync, spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -20,7 +20,8 @@ const API = "http://127.0.0.1:8011";
 const PASSWORD = "saveat-test-password";
 const A = "customer.a@saveat-test.example.com";
 const B = "customer.b@saveat-test.example.com";
-const CHROME = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const CHROME = process.env.CHROME_PATH ?? (process.platform === "win32"
+  ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/usr/bin/google-chrome");
 const PORT = 9333;
 
 mkdirSync(evidenceDir, { recursive: true });
@@ -39,9 +40,10 @@ function check(id, description, pass, actual) {
 }
 
 function db(args) {
-  const out = execSync(`uv run python "${join(import.meta.dirname, "db_tool.py")}" ${args}`, {
+  const out = execFileSync("uv", ["run", "python", join(import.meta.dirname, "db_tool.py"), ...args.split(" ")], {
     cwd: join(repoDir, "backend"),
     encoding: "utf8",
+    windowsHide: true,
   });
   return JSON.parse(out.trim().split("\n").pop());
 }
@@ -57,8 +59,7 @@ async function apiLogin(email) {
 
 // ---------- CDP plumbing ----------
 // Throwaway profile: never the user's real Chrome profile.
-const profile = join(tmpdir(), "saveat-acceptance-chrome-profile");
-rmSync(profile, { recursive: true, force: true });
+const profile = mkdtempSync(join(tmpdir(), "saveat-acceptance-"));
 const chrome = spawn(CHROME, [
   "--headless=new",
   `--remote-debugging-port=${PORT}`,
@@ -306,6 +307,13 @@ try {
   const storefrontAfter = await storefrontCardText(b);
   await shot(b, "us5-02-storefront-after-sold-out.png");
   check("US5-AC2", "storefront no longer offers the sold-out item (matches 0 in DB)", storefrontAfter === null, storefrontAfter);
+
+  // Same tab/device changes from B (cart still populated) to A.
+  await evaluate(b, `localStorage.setItem('access_token', ${JSON.stringify(tokenA)})`);
+  await goto(b, "/cart");
+  await waitText(b, "Корзина пустая");
+  check("ACCOUNT-ISOLATION", "new account does not see previous customer's cart",
+    !(await evaluate(b, "document.body.innerText")).includes("Test croissant"), null);
 } catch (error) {
   console.error("RUN ERROR", error);
   results.push({ id: "RUN", description: String(error), pass: false });
@@ -313,4 +321,5 @@ try {
   writeFileSync(join(evidenceDir, "browser-results.json"), JSON.stringify(results, null, 2));
   ws.close();
   chrome.kill();
+  process.exitCode = results.length > 0 && results.every((result) => result.pass) ? 0 : 1;
 }

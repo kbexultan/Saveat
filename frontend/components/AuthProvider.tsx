@@ -8,6 +8,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { closePushSession } from "@/lib/pushSession";
 
 export type User = {
   id: string;
@@ -56,16 +57,19 @@ export function AuthProvider({
       });
 
       if (!response.ok) {
-        localStorage.removeItem("access_token");
-        setUser(null);
+        if (response.status === 401 && localStorage.getItem("access_token") === token) {
+          localStorage.removeItem("access_token");
+          setUser(null);
+          void closePushSession(token).catch(() => undefined);
+        }
         return;
       }
 
       const data: User = await response.json();
 
-      setUser(data);
+      if (localStorage.getItem("access_token") === token) setUser(data);
     } catch {
-      setUser(null);
+      // Preserve the current session during temporary network failures.
     } finally {
       setLoading(false);
     }
@@ -83,8 +87,10 @@ export function AuthProvider({
   }, [refreshUser]);
 
   function logout() {
+    const token = localStorage.getItem("access_token");
     localStorage.removeItem("access_token");
     setUser(null);
+    void closePushSession(token).catch(() => undefined);
   }
 
   return (

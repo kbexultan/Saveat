@@ -21,7 +21,8 @@ import { Field } from "@/components/Field";
 import { Screen } from "@/components/Screen";
 import { InlineError, InlineSuccess } from "@/components/StateViews";
 import { useApiResource } from "@/hooks/useApiResource";
-import { api, toErrorMessage } from "@/lib/api";
+import { api } from "@/lib/api";
+import { pickupErrorMessage } from "@/lib/pickupErrors";
 import {
   formatPickupWindow,
   formatPrice,
@@ -202,6 +203,7 @@ function PickupContent({ businessId }: { businessId: string }) {
 
   const [scanning, setScanning] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const confirmingRef = useRef(false);
   const [actionError, setActionError] = useState("");
   const [confirmed, setConfirmed] = useState(false);
 
@@ -246,11 +248,12 @@ function PickupContent({ businessId }: { businessId: string }) {
   }
 
   async function handleConfirm() {
-    if (!order || confirming) {
+    if (!order || confirmingRef.current) {
       return;
     }
 
     setConfirming(true);
+    confirmingRef.current = true;
     setActionError("");
 
     try {
@@ -265,9 +268,16 @@ function PickupContent({ businessId }: { businessId: string }) {
       setData(updated);
       setConfirmed(true);
     } catch (caught) {
-      setActionError(toErrorMessage(caught));
+      setActionError(pickupErrorMessage(caught instanceof Error ? caught.message : undefined));
+      // A lost response may have committed the pickup; reload before another attempt.
+      try {
+        const current = await api.businessOrders.findByPickupCode(businessId, order.pickup_code);
+        setData(current);
+        if (current.status === "picked_up") setConfirmed(true);
+      } catch { /* Keep the original error if the read also fails. */ }
     } finally {
       setConfirming(false);
+      confirmingRef.current = false;
     }
   }
 

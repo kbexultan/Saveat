@@ -284,6 +284,7 @@ export type CheckoutItem = {
 };
 
 export type CheckoutPayload = {
+  idempotency_key?: string;
   items: CheckoutItem[];
   payment_method: PaymentMethod;
 };

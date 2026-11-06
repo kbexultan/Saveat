@@ -120,6 +120,7 @@ export function CartProvider({
 
   const [loaded, setLoaded] =
     useState(false);
+  const [loadedOwner, setLoadedOwner] = useState<string | null | undefined>(undefined);
 
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id ?? null;
@@ -143,11 +144,11 @@ export function CartProvider({
       return;
     }
 
-    ownerId.current = userId;
-
     // Через таймер, чтобы не дёргать setState синхронно в теле эффекта.
     const timer = setTimeout(() => {
+      ownerId.current = userId;
       setItems(readStoredCart(userId));
+      setLoadedOwner(userId);
       setLoaded(true);
     }, 0);
 
@@ -155,7 +156,7 @@ export function CartProvider({
   }, [authLoading, userId]);
 
   useEffect(() => {
-    if (!loaded) {
+    if (!loaded || authLoading || loadedOwner !== userId) {
       return;
     }
 
@@ -168,7 +169,7 @@ export function CartProvider({
         items,
       }),
     );
-  }, [items, loaded, userId]);
+  }, [items, loaded, userId, authLoading, loadedOwner]);
 
   function addItem(
     offer: Offer,
@@ -336,8 +337,8 @@ export function CartProvider({
   return (
     <CartContext.Provider
       value={{
-        items,
-        totalItems,
+        items: loadedOwner === userId ? items : [],
+        totalItems: loadedOwner === userId ? totalItems : 0,
         addItem,
         updateQuantity,
         removeItem,

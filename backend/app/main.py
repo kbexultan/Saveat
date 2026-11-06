@@ -1,4 +1,9 @@
-from fastapi import FastAPI
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from app.config import settings
+from app.push_worker import run_worker
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import test_database_connection
@@ -20,22 +25,27 @@ from app.routers.business_auth import (router as business_auth_router,)
 from app.routers.business_orders import (router as business_orders_router,)
 from app.routers.favorites import router as favorites_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    stop = asyncio.Event()
+    task = asyncio.create_task(run_worker(stop)) if settings.push_worker_enabled else None
+    try:
+        yield
+    finally:
+        stop.set()
+        if task is not None:
+            await task
+
+
 app = FastAPI(
     title="SAVEAT API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-        # Expo Web (npx expo start --web).
-        # Нативные iOS/Android клиенты
-        # CORS не используют.
-        "http://localhost:8081",
-        "http://127.0.0.1:8081",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,7 +83,10 @@ def health():
 
 @app.get("/health/database")
 def database_health():
-    result = test_database_connection()
+    try:
+        result = test_database_connection()
+    except SQLAlchemyError:
+        raise HTTPException(503, "Database unavailable") from None
 
     return {
         "database": "connected",

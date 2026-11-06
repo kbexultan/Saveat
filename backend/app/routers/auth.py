@@ -1,9 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from datetime import datetime, timezone
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import bearer_scheme, get_current_user, lock_auth_session, token_hash
+from app.config import settings
+from app.models.auth_state import RevokedSession
+from app.models.push_subscription import PushSubscription
+from app.rate_limit import limit_auth
 from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -40,8 +48,10 @@ def normalize_email(value: str) -> str:
 )
 def register(
     data: RegisterRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    limit_auth(request, str(data.email))
     email = normalize_email(data.email)
     phone = data.phone.strip()
 
@@ -103,8 +113,10 @@ def register(
 )
 def login(
     data: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    limit_auth(request, str(data.email))
     email = normalize_email(data.email)
 
     user = db.execute(
@@ -113,9 +125,9 @@ def login(
         )
     ).scalar_one_or_none()
 
-    if user is None or not verify_password(
+    if not verify_password(
         data.password,
-        user.password_hash,
+        user.password_hash if user is not None else None,
     ):
         raise HTTPException(
             status_code=401,
@@ -137,3 +149,25 @@ def me(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
+
+
+@router.post("/logout", status_code=204)
+def logout(
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+):
+    digest = token_hash(credentials.credentials)
+    lock_auth_session(db, credentials.credentials)
+    payload = jwt.decode(credentials.credentials, settings.jwt_secret_key,
+                         algorithms=[settings.jwt_algorithm], options={"require": ["exp", "sub"]})
+    now = datetime.now(timezone.utc)
+    db.execute(delete(RevokedSession).where(RevokedSession.expires_at < now))
+    db.execute(insert(RevokedSession).values(token_hash=digest,
+        expires_at=datetime.fromtimestamp(payload["exp"], timezone.utc)).on_conflict_do_nothing())
+    db.execute(delete(PushSubscription).where(
+        PushSubscription.user_id == current_user.id,
+        PushSubscription.session_hash == digest,
+    ))
+    db.commit()
+    return Response(status_code=204)

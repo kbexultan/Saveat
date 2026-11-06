@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 import { api } from "@/lib/api";
+import { getToken } from "@/lib/storage";
 
 /**
  * Push-уведомления в мобильном приложении.
@@ -36,7 +37,9 @@ function getProjectId(): string | undefined {
   );
 }
 
-export async function registerForPush(): Promise<PushRegistration> {
+export async function registerForPush(signal?: AbortSignal): Promise<PushRegistration> {
+  const sessionToken = await getToken();
+  if (!sessionToken || signal?.aborted) return { token: null };
   // Симулятор не выдаёт push-токен — это ограничение платформы,
   // а не ошибка приложения.
   if (!Device.isDevice) {
@@ -81,7 +84,9 @@ export async function registerForPush(): Promise<PushRegistration> {
       projectId ? { projectId } : undefined,
     );
 
-    await api.push.subscribe(result.data);
+    // Permission prompts can outlive logout/account switching.
+    if (signal?.aborted || sessionToken !== await getToken()) return { token: null };
+    await api.push.subscribe(result.data, sessionToken, signal);
 
     return { token: result.data };
   } catch (error) {

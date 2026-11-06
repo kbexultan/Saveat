@@ -1,275 +1,121 @@
+"""Durable outbox, committed with notifications; network never blocks checkout.
+
+Delivery is at least once: a crash after provider acceptance can retry. Payloads
+are generic so offline logout and banners already queued by an OS reveal no order
+data. The authenticated notifications API retains the complete message.
 """
-Отправка push-уведомлений: web-push в браузер и Expo в мобилку.
-
-Два принципа:
-
-1. Push уходит только ПОСЛЕ успешного commit'а. Уведомление о заказе,
-   транзакция которого откатилась, — худший вид вранья, а отменить уже
-   доставленный push нельзя.
-
-2. Ошибка отправки никогда не роняет запрос. Push — дополнительный
-   канал; если FCM недоступен, заказ всё равно должен создаться, а
-   уведомление остаться в списке под колокольчиком.
-
-Без настроенных VAPID-ключей web-push просто выключается (см.
-web_push_enabled), остальное продолжает работать.
-"""
-
 import json
 import logging
-import threading
 import uuid
-
-from sqlalchemy import event, select
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import select
 from sqlalchemy.orm import Session
-
 from app.config import settings
 from app.models.push_subscription import PushSubscription
-
+from app.models.push_delivery import PushDelivery
+from app.schemas.notification import valid_web_endpoint
 
 logger = logging.getLogger(__name__)
-
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
-
-# Ключ, под которым на сессии копятся push'и до commit'а.
-_PENDING_ATTR = "_saveat_pending_pushes"
 
 
 def web_push_enabled() -> bool:
-    return bool(
-        settings.vapid_public_key
-        and settings.vapid_private_key
-    )
+    return bool(settings.vapid_public_key and settings.vapid_private_key)
 
 
-def queue_push(
-    db: Session,
-    *,
-    user_id: uuid.UUID,
-    title: str,
-    body: str,
-    order_id: uuid.UUID | None = None,
-) -> None:
-    """Складывает push в очередь сессии; отправка — после commit'а."""
-    pending = getattr(db, _PENDING_ATTR, None)
-
-    if pending is None:
-        pending = []
-        setattr(db, _PENDING_ATTR, pending)
-
-        # once=True: вешаем слушатель на сессию один раз, иначе при
-        # нескольких уведомлениях в одном запросе он навесится столько
-        # же раз и очередь уйдёт дублями.
-        event.listen(
-            db,
-            "after_commit",
-            _flush_pending,
-            once=True,
-        )
-
-    pending.append(
-        {
-            "user_id": user_id,
-            "title": title,
-            "body": body,
-            "order_id": str(order_id) if order_id else None,
-        }
-    )
-
-
-def _flush_pending(session: Session) -> None:
-    pending = getattr(session, _PENDING_ATTR, None)
-
-    if not pending:
-        return
-
-    messages = list(pending)
-    setattr(session, _PENDING_ATTR, None)
-
-    # Сеть в отдельном потоке: иначе пользователь ждёт, пока мы
-    # достучимся до FCM, ради уведомления, которое ему уже показано
-    # в интерфейсе.
-    thread = threading.Thread(
-        target=_send_all,
-        args=(messages,),
-        daemon=True,
-    )
-
-    thread.start()
-
-
-def _send_all(messages: list[dict]) -> None:
-    from app.database import SessionLocal
-
-    db = SessionLocal()
-
-    try:
-        for message in messages:
-            try:
-                _send_to_user(db, message)
-            except Exception:
-                logger.exception(
-                    "Failed to send push to user %s",
-                    message.get("user_id"),
-                )
-    finally:
-        db.close()
-
-
-def _send_to_user(db: Session, message: dict) -> None:
-    subscriptions = (
-        db.execute(
-            select(PushSubscription).where(
-                PushSubscription.user_id == message["user_id"]
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    if not subscriptions:
-        return
-
-    payload = {
-        "title": message["title"],
-        "body": message["body"],
-        "order_id": message["order_id"],
-    }
-
-    expo_tokens = []
-    stale_ids = []
-
+def queue_push(db: Session, *, notification_id: uuid.UUID, user_id: uuid.UUID,
+               title: str, body: str, order_id: uuid.UUID | None = None) -> None:
+    subscriptions = db.scalars(select(PushSubscription).where(
+        PushSubscription.user_id == user_id,
+        PushSubscription.session_hash.is_not(None),
+        PushSubscription.expires_at > datetime.now(timezone.utc),
+    )).all()
     for subscription in subscriptions:
-        if subscription.platform == "expo":
-            expo_tokens.append(subscription.endpoint)
-            continue
-
-        if not web_push_enabled():
-            continue
-
-        if _send_web_push(subscription, payload) is False:
-            stale_ids.append(subscription.id)
-
-    if expo_tokens:
-        _send_expo_push(expo_tokens, payload)
-
-    # Подписки, которые браузер отозвал, чистим: иначе они копятся
-    # и каждый push тратит время на заведомо мёртвые эндпоинты.
-    if stale_ids:
-        for subscription in subscriptions:
-            if subscription.id in stale_ids:
-                db.delete(subscription)
-
-        try:
-            db.commit()
-        except Exception:
-            # Уборка мусора не должна оставлять сессию в сломанной
-            # транзакции: следующему уведомлению в этой же пачке
-            # она ещё нужна.
-            db.rollback()
-
-            logger.exception(
-                "Failed to remove stale push subscriptions"
-            )
+        db.add(PushDelivery(notification_id=notification_id, subscription_id=subscription.id,
+                            user_id=user_id, session_hash=subscription.session_hash))
 
 
-def _send_web_push(
-    subscription: PushSubscription,
-    payload: dict,
-) -> bool | None:
-    """True — доставлено, False — подписка мертва, None — прочая ошибка."""
-    try:
-        from pywebpush import WebPushException, webpush
-    except ImportError:
-        logger.warning(
-            "pywebpush is not installed, web push skipped"
-        )
+def process_push_batch(limit: int = 5) -> int:
+    from app.database import SessionLocal
+    processed = 0
+    for _ in range(limit):
+        with SessionLocal.begin() as db:
+            now = datetime.now(timezone.utc)
+            delivery = db.scalar(select(PushDelivery).where(
+                PushDelivery.completed_at.is_(None), PushDelivery.next_attempt_at <= now,
+            ).order_by(PushDelivery.next_attempt_at, PushDelivery.id).with_for_update(skip_locked=True).limit(1))
+            if delivery is None:
+                break
+            subscription = db.scalar(select(PushSubscription).where(
+                PushSubscription.id == delivery.subscription_id,
+            ).with_for_update())
+            if (subscription is None or subscription.user_id != delivery.user_id
+                or subscription.session_hash != delivery.session_hash
+                or subscription.expires_at is None or subscription.expires_at <= now):
+                delivery.completed_at = now
+                delivery.last_error = "subscription_inactive"
+            else:
+                payload = {"title": "SAVEAT", "body": "У вас новое уведомление. Откройте SAVEAT.",
+                           "notification_id": str(delivery.notification_id), "order_id": None}
+                try:
+                    result = (_send_expo_push([subscription.endpoint], payload) if subscription.platform == "expo"
+                              else _send_web_push(subscription, payload))
+                except Exception:
+                    result = None
+                delivery.attempts += 1
+                if result is not None:
+                    delivery.completed_at = now
+                    delivery.last_error = None if result else "subscription_expired"
+                    if result is False:
+                        db.delete(subscription)
+                else:
+                    delivery.last_error = "provider_delivery_failed"
+                    delivery.next_attempt_at = now + timedelta(seconds=min(3600, 30 * 2 ** delivery.attempts))
+                    if delivery.attempts >= 8:
+                        delivery.completed_at = now
+                    logger.warning("Push delivery %s failed (attempt %s)", delivery.id, delivery.attempts)
+            processed += 1
+    return processed
+
+
+def _send_web_push(subscription: PushSubscription, payload: dict) -> bool | None:
+    if not valid_web_endpoint(subscription.endpoint):
+        return False
+    if not web_push_enabled():
         return None
-
+    from pywebpush import WebPushException, webpush
+    import requests
     try:
-        webpush(
-            subscription_info={
-                "endpoint": subscription.endpoint,
-                "keys": {
-                    "p256dh": subscription.p256dh,
-                    "auth": subscription.auth,
-                },
-            },
-            data=json.dumps(payload),
-            vapid_private_key=settings.vapid_private_key,
-            vapid_claims={
-                "sub": settings.vapid_subject,
-            },
-            timeout=10,
-        )
-
+        with requests.Session() as session:
+            session.max_redirects = 0
+            webpush(subscription_info={"endpoint": subscription.endpoint,
+                    "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth}},
+                    data=json.dumps(payload), vapid_private_key=settings.vapid_private_key,
+                    vapid_claims={"sub": settings.vapid_subject}, timeout=10, requests_session=session)
         return True
-
     except WebPushException as error:
-        status_code = getattr(
-            getattr(error, "response", None),
-            "status_code",
-            None,
-        )
+        code = getattr(getattr(error, "response", None), "status_code", None)
+        return False if code in {404, 410} else None
+    except Exception:
+        return None
 
-        # 404/410 — браузер отозвал подписку, она больше не оживёт.
-        if status_code in {404, 410}:
+
+def _send_expo_push(tokens: list[str], payload: dict) -> bool | None:
+    import httpx
+    try:
+        response = httpx.post(EXPO_PUSH_URL, json=[{
+            "to": token, "title": payload["title"], "body": payload["body"],
+            "data": {"notification_id": payload["notification_id"]}, "sound": "default",
+        } for token in tokens], timeout=10, follow_redirects=False)
+        if response.status_code != 200:
+            return None
+        tickets = response.json().get("data", [])
+        if len(tickets) != len(tokens):
+            return None
+        if all(ticket.get("status") == "ok" for ticket in tickets):
+            return True
+        if all(ticket.get("details", {}).get("error") == "DeviceNotRegistered" for ticket in tickets):
             return False
-
-        logger.warning("Web push failed: %s", error)
-        return None
-
     except Exception:
-        # pywebpush ходит в сеть через requests и поднимает не только
-        # WebPushException: обрыв соединения, таймаут или битый ключ
-        # прилетают своими типами. Пропустив их наверх, мы обрывали
-        # рассылку этому же человеку — до Expo-токена (телефона)
-        # очередь уже не доходила.
-        logger.exception(
-            "Web push failed for subscription %s",
-            subscription.id,
-        )
-
-        return None
-
-
-def _send_expo_push(tokens: list[str], payload: dict) -> None:
-    try:
-        import httpx
-    except ImportError:
-        logger.warning(
-            "httpx is not installed, expo push skipped"
-        )
-        return
-
-    body = [
-        {
-            "to": token,
-            "title": payload["title"],
-            "body": payload["body"],
-            "data": {"order_id": payload["order_id"]},
-            "sound": "default",
-        }
-        for token in tokens
-    ]
-
-    try:
-        response = httpx.post(
-            EXPO_PUSH_URL,
-            json=body,
-            timeout=10,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-        )
-
-        if response.status_code >= 400:
-            logger.warning(
-                "Expo push failed: %s %s",
-                response.status_code,
-                response.text[:200],
-            )
-
-    except Exception:
-        logger.exception("Expo push request failed")
+        pass
+    return None

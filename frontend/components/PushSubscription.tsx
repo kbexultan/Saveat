@@ -8,6 +8,7 @@ import {
 
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { registerPushSession } from "@/lib/pushSession";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
@@ -64,6 +65,9 @@ export function usePushSubscription() {
     let cancelled = false;
 
     async function detect() {
+      if (!user) return;
+      const sessionToken = localStorage.getItem("access_token");
+      if (!sessionToken) return;
       if (!pushSupported()) {
         if (!cancelled) setStatus("unsupported");
         return;
@@ -106,6 +110,10 @@ export function usePushSubscription() {
         const existing =
           await registration?.pushManager.getSubscription();
 
+        if (existing && !cancelled && localStorage.getItem("access_token") === sessionToken) {
+          await registerPushSession(existing, sessionToken);
+        }
+
         if (!cancelled) {
           setStatus(existing ? "subscribed" : "idle");
         }
@@ -128,6 +136,8 @@ export function usePushSubscription() {
     }
 
     setBusy(true);
+    const sessionToken = localStorage.getItem("access_token");
+    if (!sessionToken || !user) { setBusy(false); return; }
 
     try {
       const permission =
@@ -160,32 +170,13 @@ export function usePushSubscription() {
             urlBase64ToUint8Array(publicKey),
         });
 
-      const json = subscription.toJSON();
-
       const token = localStorage.getItem("access_token");
-
-      const response = await fetch(
-        `${API_URL}/push/subscribe`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            endpoint: subscription.endpoint,
-            p256dh: json.keys?.p256dh ?? null,
-            auth: json.keys?.auth ?? null,
-            platform: "web",
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Subscribe failed: ${response.status}`,
-        );
+      if (token !== sessionToken) {
+        await subscription.unsubscribe();
+        return;
       }
+
+      await registerPushSession(subscription, sessionToken);
 
       setStatus("subscribed");
 
@@ -203,7 +194,7 @@ export function usePushSubscription() {
     } finally {
       setBusy(false);
     }
-  }, [publicKey, busy, toast]);
+  }, [publicKey, busy, toast, user]);
 
   const unsubscribe = useCallback(async () => {
     if (busy) {
@@ -226,7 +217,7 @@ export function usePushSubscription() {
         // Сначала снимаем на сервере: если сделать наоборот и запрос
         // упадёт, в базе останется мёртвая подписка, на которую мы
         // будем безуспешно слать push.
-        await fetch(`${API_URL}/push/unsubscribe`, {
+        const response = await fetch(`${API_URL}/push/unsubscribe`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -237,7 +228,9 @@ export function usePushSubscription() {
           }),
         });
 
+        // Revoke locally even if the server rejects an expired session.
         await subscription.unsubscribe();
+        if (!response.ok && response.status !== 401) throw new Error("Push unsubscribe failed");
       }
 
       setStatus("idle");

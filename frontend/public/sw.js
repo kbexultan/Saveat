@@ -37,8 +37,8 @@ self.addEventListener("push", (event) => {
       badge: "/favicon.ico",
       // tag по заказу: повторные события одного заказа заменяют
       // друг друга, а не копятся стопкой в шторке.
-      tag: payload.order_id
-        ? `order-${payload.order_id}`
+      tag: payload.notification_id
+        ? `notification-${payload.notification_id}`
         : undefined,
       data: {
         order_id: payload.order_id,

@@ -27,6 +27,11 @@ class CheckoutItem(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
+    # Optional for older clients. A retry must retain the same key and contents.
+    idempotency_key: str | None = Field(
+        default=None, min_length=1, max_length=128, pattern=r"^[A-Za-z0-9._:-]+$",
+    )
+
     items: list[CheckoutItem] = Field(
         min_length=1,
         max_length=20,

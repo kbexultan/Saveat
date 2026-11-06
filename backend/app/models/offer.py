@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,6 +11,9 @@ from app.models.base import Base
 
 class Offer(Base):
     __tablename__ = "offers"
+    __table_args__ = (
+        CheckConstraint("quantity_remaining >= 0 AND quantity_remaining <= quantity_total", name="ck_offers_stock_bounds"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

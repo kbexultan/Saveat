@@ -1,5 +1,6 @@
 from datetime import datetime, time
 from uuid import UUID
+from app.schemas.patch import PatchModel
 
 from pydantic import (
     BaseModel,
@@ -11,10 +12,10 @@ from pydantic import (
 
 class BranchCreate(BaseModel):
     business_id: UUID
-    name: str
-    address: str
-    latitude: float | None = None
-    longitude: float | None = None
+    name: str = Field(min_length=1, max_length=150)
+    address: str = Field(min_length=1, max_length=300)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
     opening_time: time | None = None
     closing_time: time | None = None
 
@@ -32,12 +33,13 @@ class BranchResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-class BranchUpdate(BaseModel):
+class BranchUpdate(PatchModel):
+    non_nullable_fields = {"name", "address"}
     # Все поля необязательные:
     # PATCH меняет только то,
     # что реально прислали.
-    name: str | None = None
-    address: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=150)
+    address: str | None = Field(default=None, min_length=1, max_length=300)
 
     latitude: float | None = Field(
         default=None,
