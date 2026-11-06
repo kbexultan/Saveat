@@ -10,6 +10,7 @@ import {
 } from "next/navigation";
 
 import Header from "@/components/Header";
+import { checkoutAttempt, type CheckoutAttempt } from "@/lib/checkoutAttempt";
 
 import {
     useAuth,
@@ -146,6 +147,11 @@ export default function CartPage() {
         setCheckingOut(true);
 
         try {
+            const checkoutItems = items.map((item) => ({ offer_id: item.offer.id, quantity: item.quantity }));
+            let previous: CheckoutAttempt | null = null;
+            try { previous = JSON.parse(sessionStorage.getItem("saveat_checkout_attempt") ?? "null"); } catch { /* invalid cache */ }
+            const attempt = checkoutAttempt(previous, user.id, checkoutItems, () => crypto.randomUUID());
+            sessionStorage.setItem("saveat_checkout_attempt", JSON.stringify(attempt));
             const response =
                 await fetch(
                     `${API_URL}/orders/checkout`,
@@ -162,6 +168,7 @@ export default function CartPage() {
 
                         body:
                             JSON.stringify({
+                                idempotency_key: attempt.key,
                                 items:
                                     items.map(
                                         (item) => ({
@@ -261,6 +268,7 @@ export default function CartPage() {
                 // would invite a duplicate order, so clear it and show
                 // the order list instead of a confirmation we can't open.
                 clearCart();
+                sessionStorage.removeItem("saveat_checkout_attempt");
 
                 router.push("/orders");
 
@@ -274,6 +282,7 @@ export default function CartPage() {
             ).id;
 
             clearCart();
+            sessionStorage.removeItem("saveat_checkout_attempt");
 
             router.push(
                 `/orders/${orderId}`,

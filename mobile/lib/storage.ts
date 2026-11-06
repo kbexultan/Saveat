@@ -94,5 +94,6 @@ export async function removeKey(key: string): Promise<void> {
 
 export const STORAGE_KEYS = {
   cart: "saveat_cart",
+  checkoutAttempt: "saveat_checkout_attempt",
   selectedBusiness: "saveat_business_id",
 } as const;

@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { MAX_QUANTITY_PER_OFFER } from "@/constants/theme";
+import { applyLiveAvailability, maxQuantityFor } from "@/lib/cartAvailability";
 import { useAuth } from "@/contexts/AuthContext";
 import { toNumber } from "@/lib/format";
 import { readJson, removeKey, STORAGE_KEYS, writeJson } from "@/lib/storage";
@@ -51,10 +52,6 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-function maxQuantityFor(offer: PublicOffer): number {
-  return Math.min(offer.quantity_remaining, MAX_QUANTITY_PER_OFFER);
-}
-
 type StoredCart = {
   ownerId: string | null;
   items: CartItem[];
@@ -64,7 +61,7 @@ function isUsableItem(item: CartItem): boolean {
   return Boolean(
     item &&
       typeof item.quantity === "number" &&
-      item.quantity > 0 &&
+      Number.isInteger(item.quantity) && item.quantity > 0 && item.quantity <= MAX_QUANTITY_PER_OFFER &&
       item.offer &&
       typeof item.offer.id === "string",
   );
@@ -153,11 +150,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback(
     (offer: PublicOffer, quantity: number): CartActionResult => {
-      if (quantity < 1) {
+      if (!Number.isInteger(quantity) || quantity < 1) {
         return { success: false, message: "Выберите количество." };
       }
 
-      if (offer.quantity_remaining <= 0) {
+      if (maxQuantityFor(offer) <= 0) {
         return { success: false, message: "Это предложение распродано." };
       }
 
@@ -278,42 +275,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    * а пропавшие или распроданные позиции убираем из корзины.
    */
   const syncWithOffers = useCallback((offers: PublicOffer[]) => {
-    if (offers.length === 0) {
-      return;
-    }
-
-    const byId = new Map(offers.map((offer) => [offer.id, offer]));
-
-    setItems((current) => {
-      let changed = false;
-
-      const next: CartItem[] = [];
-
-      for (const item of current) {
-        const fresh = byId.get(item.offer.id);
-
-        if (!fresh) {
-          // Оффера больше нет в публичной выдаче — оставляем
-          // как есть, checkout сам вернёт понятную ошибку.
-          next.push(item);
-          continue;
-        }
-
-        const limit = Math.max(1, maxQuantityFor(fresh));
-        const quantity = Math.min(item.quantity, limit);
-
-        if (
-          fresh !== item.offer ||
-          quantity !== item.quantity
-        ) {
-          changed = true;
-        }
-
-        next.push({ offer: fresh, quantity });
-      }
-
-      return changed ? next : current;
-    });
+    setItems((current) => applyLiveAvailability(current, offers));
   }, []);
 
   const totalItems = useMemo(

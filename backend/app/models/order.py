@@ -8,6 +8,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,6 +23,12 @@ from app.models.base import Base
 
 class Order(Base):
     __tablename__ = "orders"
+    __table_args__ = (
+        UniqueConstraint("user_id", "idempotency_key", name="uq_orders_user_idempotency"),
+    )
+
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

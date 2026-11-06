@@ -1,5 +1,5 @@
-import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
@@ -9,7 +9,9 @@ import {
   InlineError,
   LoadingState,
 } from "@/components/StateViews";
-import { MAX_QUANTITY_PER_OFFER } from "@/constants/theme";
+import { canCheckout, maxQuantityFor } from "@/lib/cartAvailability";
+import { checkoutAttempt, type CheckoutAttempt } from "@/lib/checkoutAttempt";
+import { readJson, removeKey, STORAGE_KEYS, writeJson } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart, type CartItem } from "@/contexts/CartContext";
 import { ApiError, NetworkError, api } from "@/lib/api";
@@ -61,10 +63,7 @@ function CartRow({
 }) {
   const { offer, quantity } = item;
 
-  const maxQuantity = Math.min(
-    offer.quantity_remaining,
-    MAX_QUANTITY_PER_OFFER,
-  );
+  const maxQuantity = maxQuantityFor(offer);
 
   const lineTotal = toNumber(offer.sale_price) * quantity;
 
@@ -146,7 +145,7 @@ function CartRow({
 
       <View className="flex-row items-center justify-between gap-3">
         <Text className="text-xs text-muted">
-          Осталось {offer.quantity_remaining} шт.
+          {maxQuantity > 0 ? `Осталось ${maxQuantity} шт.` : "Нет в наличии"}
         </Text>
 
         <Pressable
@@ -168,7 +167,7 @@ function CartRow({
 export default function CartScreen() {
   const router = useRouter();
 
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   const {
     items,
@@ -182,6 +181,7 @@ export default function CartScreen() {
     decrement,
     removeItem,
     clearCart,
+    syncWithOffers,
   } = useCart();
 
   const [submitting, setSubmitting] = useState(false);
@@ -189,6 +189,24 @@ export default function CartScreen() {
   // `submitting` in this closure can be stale on a fast double tap;
   // the ref stops the second request synchronously.
   const submittingRef = useRef(false);
+  const attemptRef = useRef<CheckoutAttempt | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const hasItems = items.length > 0;
+
+  useFocusEffect(useCallback(() => {
+    if (loading || !hasItems) return;
+    const controller = new AbortController();
+    setCheckingAvailability(true);
+    void api.offers.publicList(controller.signal).then(syncWithOffers).catch(() => {
+      if (!controller.signal.aborted) {
+        syncWithOffers([]);
+        setError("Не удалось проверить наличие. Обновите остатки и попробуйте снова.");
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setCheckingAvailability(false);
+    });
+    return () => controller.abort();
+  }, [loading, hasItems, syncWithOffers]));
 
   const pickupStart = items.reduce<string | null>((latest, item) => {
     if (!latest || item.offer.pickup_start > latest) {
@@ -207,7 +225,7 @@ export default function CartScreen() {
   }, null);
 
   async function handleCheckout() {
-    if (submittingRef.current || items.length === 0) {
+    if (submittingRef.current || checkingAvailability || !canCheckout(items)) {
       return;
     }
 
@@ -221,9 +239,16 @@ export default function CartScreen() {
     setError("");
 
     try {
+      const checkoutItems = items.map((item) => ({ offer_id: item.offer.id, quantity: item.quantity }));
+      const previous = attemptRef.current ?? await readJson<CheckoutAttempt>(STORAGE_KEYS.checkoutAttempt);
+      const attempt = checkoutAttempt(previous, user!.id, checkoutItems,
+        () => `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`);
+      attemptRef.current = attempt;
+      await writeJson(STORAGE_KEYS.checkoutAttempt, attempt);
       // Заказ целиком создаёт backend: он же проверяет остатки,
       // считает сумму и выдаёт pickup_code.
       const order = await api.orders.checkout({
+        idempotency_key: attempt.key,
         items: items.map((item) => ({
           offer_id: item.offer.id,
           quantity: item.quantity,
@@ -232,11 +257,21 @@ export default function CartScreen() {
       });
 
       clearCart();
+      attemptRef.current = null;
+      await removeKey(STORAGE_KEYS.checkoutAttempt);
 
       router.replace(`/orders/${order.id}`);
     } catch (caught) {
       // Cart items are kept so the customer can adjust and retry.
       setError(describeCheckoutCaught(caught));
+      if (caught instanceof ApiError && [409, 404].includes(caught.status)) {
+        try {
+          syncWithOffers(await api.offers.publicList());
+        } catch {
+          // Availability is unknown; fail closed while retaining all cart rows.
+          syncWithOffers([]);
+        }
+      }
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -314,6 +349,16 @@ export default function CartScreen() {
         ))}
 
         {error ? <InlineError message={error} /> : null}
+        {!canCheckout(items) ? <InlineError message="Некоторые товары недоступны. Измените количество или удалите их." /> : null}
+
+        <Button label="Обновить остатки" variant="ghost" disabled={submitting || checkingAvailability}
+          onPress={() => {
+            setCheckingAvailability(true);
+            void api.offers.publicList().then(syncWithOffers).catch(() => {
+              syncWithOffers([]);
+              setError("Не удалось проверить наличие. Попробуйте позже.");
+            }).finally(() => setCheckingAvailability(false));
+          }} />
 
         <Button
           label="Очистить корзину"
@@ -344,6 +389,7 @@ export default function CartScreen() {
           }
           onPress={() => void handleCheckout()}
           loading={submitting}
+          disabled={checkingAvailability || !canCheckout(items)}
         />
       </View>
     </Screen>

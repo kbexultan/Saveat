@@ -1,3 +1,5 @@
+import hashlib
+import json
 import uuid
 from decimal import Decimal
 from uuid import UUID
@@ -240,6 +242,28 @@ def create_checkout_order(
     )
 
     try:
+        fingerprint = None
+        if data.idempotency_key is not None:
+            canonical = json.dumps({
+                "items": [(str(key), quantities[key]) for key in offer_ids],
+                "payment_method": data.payment_method,
+            }, sort_keys=True, separators=(",", ":"))
+            fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
+            # Transaction-scoped lock also serializes the first two requests,
+            # when no order row exists yet. Stock row locking below is unchanged.
+            lock_id = int.from_bytes(hashlib.sha256(
+                f"checkout:{current_user.id}:{data.idempotency_key}".encode()
+            ).digest()[:8], "big", signed=True)
+            db.execute(select(func.pg_advisory_xact_lock(lock_id)))
+            original = db.execute(select(Order).where(
+                Order.user_id == current_user.id,
+                Order.idempotency_key == data.idempotency_key,
+            )).scalar_one_or_none()
+            if original is not None:
+                if original.request_fingerprint != fingerprint:
+                    raise HTTPException(409, "Idempotency key was used for different checkout contents")
+                return build_order_response(original, db)
+
         # Блокируем все товары корзины.
         # Пока checkout идёт,
         # другой запрос не сможет
@@ -407,6 +431,8 @@ def create_checkout_order(
 
         order = Order(
             user_id=current_user.id,
+            idempotency_key=data.idempotency_key,
+            request_fingerprint=fingerprint,
 
             branch_id=branch.id,
 

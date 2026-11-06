@@ -38,10 +38,10 @@ export default function HomeScreen() {
 
   // Цены и остатки в корзине держим в актуальном состоянии.
   useEffect(() => {
-    if (offers.length > 0) {
-      syncWithOffers(offers);
+    if (data !== null && data !== undefined) {
+      syncWithOffers(data);
     }
-  }, [offers, syncWithOffers]);
+  }, [data, syncWithOffers]);
 
   const categories = useMemo(() => {
     const found = new Set<string>();
