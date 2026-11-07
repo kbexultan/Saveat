@@ -12,6 +12,28 @@ import type { Category } from "@/lib/categories";
 /** Псевдо-категория «показать всё». Не пересекается со slug'ами справочника. */
 const ALL = "all";
 
+/*
+  В свёрнутом виде показываем две строки сетки. Колонок 1 / 2 / 3
+  (телефон / md / lg), поэтому «две строки» — это 2 / 4 / 6 карточек.
+  Считаем через те же брейкпоинты, что и у сетки, а не через JS:
+  так нет скачка разметки при гидрации и на ресайзе.
+*/
+const COLLAPSED_ROWS = 2;
+
+function collapsedItemClass(index: number): string {
+  if (index < COLLAPSED_ROWS) return "grid";
+  if (index < COLLAPSED_ROWS * 2) return "hidden md:grid";
+  if (index < COLLAPSED_ROWS * 3) return "hidden lg:grid";
+  return "hidden";
+}
+
+/** Кнопка нужна только на тех ширинах, где часть карточек скрыта. */
+function toggleVisibilityClass(total: number): string {
+  if (total > COLLAPSED_ROWS * 3) return "flex";
+  if (total > COLLAPSED_ROWS * 2) return "flex lg:hidden";
+  return "flex md:hidden";
+}
+
 export default function CategoryFilter({
   offers,
   categories,
@@ -20,6 +42,13 @@ export default function CategoryFilter({
   categories: Category[];
 }) {
   const [active, setActive] = useState<string>(ALL);
+  const [expanded, setExpanded] = useState(false);
+
+  // Смена категории снова сворачивает список до двух строк.
+  const selectCategory = (slug: string) => {
+    setActive(slug);
+    setExpanded(false);
+  };
 
   /*
     Рисуем только те категории, в которых реально есть предложения.
@@ -76,7 +105,7 @@ export default function CategoryFilter({
               key={chip.slug}
               type="button"
               aria-pressed={isActive}
-              onClick={() => setActive(chip.slug)}
+              onClick={() => selectCategory(chip.slug)}
               className={`min-h-11 flex-none snap-start rounded-pill px-5 text-body font-semibold transition ${
                 isActive
                   ? "bg-ink text-white"
@@ -172,7 +201,7 @@ export default function CategoryFilter({
 
           <button
             type="button"
-            onClick={() => setActive(ALL)}
+            onClick={() => selectCategory(ALL)}
             className="mt-6 inline-flex min-h-12 items-center justify-center rounded-chip bg-primary px-6 text-body font-bold text-white shadow-primary transition hover:bg-primary-strong"
           >
             Показать все
@@ -183,12 +212,55 @@ export default function CategoryFilter({
       {/* Предложения */}
       {visibleOffers.length > 0 && (
         <div className="mt-6 grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {visibleOffers.map((offer) => (
-            <OfferCard
+          {visibleOffers.map((offer, index) => (
+            <div
               key={offer.id}
-              offer={offer}
-            />
+              className={
+                expanded ? "grid" : collapsedItemClass(index)
+              }
+            >
+              <OfferCard offer={offer} />
+            </div>
           ))}
+        </div>
+      )}
+
+      {/* «Открыть все»: видна, только если на этой ширине что-то скрыто */}
+      {visibleOffers.length > COLLAPSED_ROWS && (
+        <div
+          className={`mt-6 justify-center sm:mt-8 ${
+            expanded
+              ? "flex"
+              : toggleVisibilityClass(visibleOffers.length)
+          }`}
+        >
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-chip bg-surface px-6 text-body font-bold text-primary-strong shadow-soft transition hover:bg-surface-blush"
+          >
+            {expanded
+              ? "Свернуть"
+              : `Открыть все (${visibleOffers.length})`}
+
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              className={expanded ? "rotate-180" : undefined}
+            >
+              <path
+                d="m6 9 6 6 6-6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
       )}
     </>
