@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, false, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,7 @@ class Offer(Base):
     __tablename__ = "offers"
     __table_args__ = (
         CheckConstraint("quantity_remaining >= 0 AND quantity_remaining <= quantity_total", name="ck_offers_stock_bounds"),
+        Index("ix_offers_demo_pickup_end", "pickup_end", postgresql_where=text("is_demo")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -83,6 +84,16 @@ class Offer(Base):
         String(30),
         nullable=False,
         default="active",
+    )
+
+    # Seeded demo offer: app/demo_offers.py rolls its pickup window
+    # forward by whole days instead of letting it expire. Real offers
+    # (false) expire exactly as before.
+    is_demo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
     )
 
     created_at: Mapped[datetime] = mapped_column(

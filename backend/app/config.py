@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     push_worker_enabled: bool = True
+    # Rolls the pickup window of seeded demo offers (offers.is_demo) forward
+    # so the demo storefront never empties. Real offers are never touched.
+    # Off by default; the demo environment turns it on (DEMO_ENVIRONMENT.md).
+    demo_offers_auto_renew: bool = False
+    # Password for the demo accounts created by scripts.demo_env. Lives only
+    # in the local, git-ignored backend/.env, never in the repository.
+    demo_account_password: str | None = None
     # Existing businesses keep their status. Only new registrations need approval.
     business_registration_requires_approval: bool = True
     cors_origins: list[str] = [

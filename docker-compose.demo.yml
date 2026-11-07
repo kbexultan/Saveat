@@ -1,0 +1,35 @@
+# Persistent local PostgreSQL for the SAVEAT demo environment.
+#
+# Unlike docker-compose.test.yml, data lives in a named volume and survives
+# container and computer restarts. It is bound to 127.0.0.1 only and has
+# nothing to do with the production Supabase project. The credentials are
+# local-only values, not secrets.
+#
+#   docker compose -f docker-compose.demo.yml up -d --wait
+#   docker compose -f docker-compose.demo.yml down        # keeps the data
+#   docker compose -f docker-compose.demo.yml down -v     # deletes the data
+#
+# See DEMO_ENVIRONMENT.md. The demo.ps1 script wraps the whole workflow.
+
+name: saveat-demo
+
+services:
+  postgres-demo:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: saveat_demo
+      POSTGRES_PASSWORD: saveat_demo
+      POSTGRES_DB: saveat_demo
+    ports:
+      - "127.0.0.1:54330:5432"
+    volumes:
+      - saveat-demo-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saveat_demo -d saveat_demo"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  saveat-demo-data:

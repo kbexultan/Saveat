@@ -50,6 +50,9 @@ BACKEND_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 # Test-only secrets. They never leave the test process.
 TEST_ENVIRONMENT = {
     "PUSH_WORKER_ENABLED": "false",
+    # Tests call app.demo_offers directly; the background loop stays off
+    # even when the local backend/.env enables it for the demo environment.
+    "DEMO_OFFERS_AUTO_RENEW": "false",
     "BUSINESS_REGISTRATION_REQUIRES_APPROVAL": "true",
     "JWT_SECRET_KEY": "saveat-test-only-jwt-secret-not-for-production",
     "JWT_ALGORITHM": "HS256",

@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from app.config import settings
 from app.push_worker import run_worker
+from app.demo_offers import run_demo_offer_worker
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import test_database_connection
@@ -28,12 +29,16 @@ from app.routers.favorites import router as favorites_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     stop = asyncio.Event()
-    task = asyncio.create_task(run_worker(stop)) if settings.push_worker_enabled else None
+    tasks = []
+    if settings.push_worker_enabled:
+        tasks.append(asyncio.create_task(run_worker(stop)))
+    if settings.demo_offers_auto_renew:
+        tasks.append(asyncio.create_task(run_demo_offer_worker(stop)))
     try:
         yield
     finally:
         stop.set()
-        if task is not None:
+        for task in tasks:
             await task
 
 
